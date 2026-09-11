@@ -1,35 +1,9 @@
 -- ==============================================================================
--- SCHEMA COMPLETO DO BANCO DE DADOS POSTGRESQL / SUPABASE
+-- SCHEMA COMPLETO DO BANCO DE DADOS POSTGRESQL
 -- GH Camiseteria & Uniformes Personalizados
--- Compatível com Supabase Cloud, Supabase Self-Hosted e PostgreSQL padrão (aaPanel)
+-- 100% Compatível com PostgreSQL padrão (aaPanel / VPS / Ubuntu) e Supabase
+-- Executa perfeitamente sem necessidade de privilégios de superuser
 -- ==============================================================================
-
--- ------------------------------------------------------------------------------
--- 0. COMPATIBILIDADE PARA POSTGRESQL PADRÃO (aaPanel / VPS)
--- ------------------------------------------------------------------------------
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-CREATE SCHEMA IF NOT EXISTS auth;
-
--- Criação da tabela auth.users caso ainda não exista no PostgreSQL padrão
-CREATE TABLE IF NOT EXISTS auth.users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE,
-    raw_user_meta_data JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
-);
-
--- Função auxiliar auth.uid() caso não esteja rodando dentro do Supabase Cloud
-CREATE OR REPLACE FUNCTION auth.uid()
-RETURNS UUID AS $$
-    SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
-$$ LANGUAGE sql STABLE;
-
-CREATE OR REPLACE FUNCTION auth.role()
-RETURNS TEXT AS $$
-    SELECT COALESCE(current_setting('request.jwt.claim.role', true), 'anon');
-$$ LANGUAGE sql STABLE;
 
 -- ------------------------------------------------------------------------------
 -- 1. ENUMS
@@ -107,14 +81,15 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ------------------------------------------------------------------------------
--- 2. TABELAS & RESTRIÇÕES
+-- 2. TABELAS (PUBLIC SCHEMA)
 -- ------------------------------------------------------------------------------
 
--- Perfis
+-- Perfis de Usuários
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
+    password_hash TEXT,
     phone TEXT,
     role user_role NOT NULL DEFAULT 'cliente',
     avatar_url TEXT,
@@ -148,7 +123,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
 -- Clientes
 CREATE TABLE IF NOT EXISTS public.customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     company_id UUID REFERENCES public.companies(id) ON DELETE SET NULL,
     customer_type customer_type NOT NULL DEFAULT 'PF',
     full_name TEXT NOT NULL,
@@ -305,7 +280,7 @@ CREATE TABLE IF NOT EXISTS public.design_templates (
     thumbnail_url TEXT,
     template_data JSONB NOT NULL DEFAULT '{}'::jsonb,
     is_public BOOLEAN NOT NULL DEFAULT true,
-    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     deleted_at TIMESTAMPTZ
@@ -315,7 +290,7 @@ CREATE TABLE IF NOT EXISTS public.design_templates (
 CREATE TABLE IF NOT EXISTS public.designs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     shirt_model_id UUID NOT NULL REFERENCES public.shirt_models(id) ON DELETE RESTRICT,
     name TEXT NOT NULL,
     status design_status NOT NULL DEFAULT 'draft',
@@ -343,7 +318,7 @@ CREATE TABLE IF NOT EXISTS public.quotes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     quote_number TEXT NOT NULL UNIQUE,
     customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status quote_status NOT NULL DEFAULT 'draft',
     total_estimated NUMERIC(10, 2) DEFAULT 0.00 CHECK (total_estimated >= 0),
     valid_until TIMESTAMPTZ,
@@ -376,7 +351,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     order_number TEXT NOT NULL UNIQUE,
     quote_id UUID REFERENCES public.quotes(id) ON DELETE SET NULL,
     customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
     status order_status NOT NULL DEFAULT 'pending_payment',
     total_amount NUMERIC(10, 2) NOT NULL CHECK (total_amount >= 0),
     discount_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (discount_amount >= 0),
@@ -447,7 +422,7 @@ CREATE TABLE IF NOT EXISTS public.production_steps (
     production_order_id UUID NOT NULL REFERENCES public.production_orders(id) ON DELETE CASCADE,
     step_name production_step_name NOT NULL,
     status step_status NOT NULL DEFAULT 'not_started',
-    assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     notes TEXT,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
@@ -458,7 +433,7 @@ CREATE TABLE IF NOT EXISTS public.production_steps (
 -- Arquivos
 CREATE TABLE IF NOT EXISTS public.files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
     entity_type file_entity_type NOT NULL,
     entity_id UUID,
@@ -545,6 +520,20 @@ BEGIN
     END LOOP;
 END $$;
 
+-- Função auxiliar que identifica o usuário atual de forma flexível (Supabase JWT ou PostgreSQL session)
+CREATE OR REPLACE FUNCTION public.current_user_id()
+RETURNS UUID AS $$
+BEGIN
+    RETURN NULLIF(COALESCE(
+        current_setting('request.jwt.claim.sub', true),
+        current_setting('app.current_user_id', true),
+        ''
+    ), '')::UUID;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 SECURITY DEFINER
@@ -555,7 +544,7 @@ AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
-        WHERE id = auth.uid()
+        WHERE id = public.current_user_id()
           AND role IN ('admin', 'gerente')
           AND deleted_at IS NULL
     );
@@ -572,7 +561,7 @@ AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
-        WHERE id = auth.uid()
+        WHERE id = public.current_user_id()
           AND role IN ('admin', 'gerente', 'producao')
           AND deleted_at IS NULL
     );
@@ -607,69 +596,79 @@ ALTER TABLE public.production_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
+-- Limpar políticas antigas se existirem
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
+    END LOOP;
+END $$;
+
 -- Profiles
-CREATE POLICY "Profiles: Admins possuem acesso total" ON public.profiles FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Profiles: Usuários podem visualizar seu próprio perfil" ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Profiles: Usuários podem atualizar seu próprio perfil" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles_admin_all" ON public.profiles FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "profiles_owner_select" ON public.profiles FOR SELECT USING (public.current_user_id() = id);
+CREATE POLICY "profiles_owner_update" ON public.profiles FOR UPDATE USING (public.current_user_id() = id) WITH CHECK (public.current_user_id() = id);
 
 -- Companies & Customers
-CREATE POLICY "Companies: Admins possuem acesso total" ON public.companies FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Companies: Usuários autenticados podem cadastrar empresa" ON public.companies FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Companies: Clientes vinculados podem ver e editar sua empresa" ON public.companies FOR ALL USING (id IN (SELECT company_id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL));
-CREATE POLICY "Customers: Admins possuem acesso total" ON public.customers FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Customers: Usuário acessa e edita seu próprio registro de cliente" ON public.customers FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "companies_admin_all" ON public.companies FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "companies_insert" ON public.companies FOR INSERT WITH CHECK (true);
+CREATE POLICY "companies_owner" ON public.companies FOR ALL USING (id IN (SELECT company_id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
+CREATE POLICY "customers_admin_all" ON public.customers FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "customers_owner_all" ON public.customers FOR ALL USING (user_id = public.current_user_id()) WITH CHECK (user_id = public.current_user_id());
 
 -- Catálogo Público
-CREATE POLICY "Categories: Leitura pública para itens ativos" ON public.categories FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Categories: Escrita admin" ON public.categories FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Fabrics: Leitura pública para itens ativos" ON public.fabrics FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Fabrics: Escrita admin" ON public.fabrics FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Colors: Leitura pública para cores ativas" ON public.colors FOR SELECT USING (is_active = true OR public.is_admin());
-CREATE POLICY "Colors: Escrita admin" ON public.colors FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Sizes: Leitura pública para tamanhos ativos" ON public.sizes FOR SELECT USING (is_active = true OR public.is_admin());
-CREATE POLICY "Sizes: Escrita admin" ON public.sizes FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Products: Leitura pública para produtos ativos" ON public.products FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Products: Escrita admin" ON public.products FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Product Variants: Leitura pública para variações ativas" ON public.product_variants FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Product Variants: Escrita admin" ON public.product_variants FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Shirt Models: Leitura pública para modelos ativos" ON public.shirt_models FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Shirt Models: Escrita admin" ON public.shirt_models FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Shirt Views: Leitura pública de vistas" ON public.shirt_views FOR SELECT USING (true);
-CREATE POLICY "Shirt Views: Escrita admin" ON public.shirt_views FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Shirt Zones: Leitura pública de zonas ativas" ON public.shirt_zones FOR SELECT USING (is_active = true OR public.is_admin());
-CREATE POLICY "Shirt Zones: Escrita admin" ON public.shirt_zones FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Design Templates: Leitura pública" ON public.design_templates FOR SELECT USING (is_public = true AND deleted_at IS NULL OR public.is_admin());
-CREATE POLICY "Design Templates: Escrita admin" ON public.design_templates FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "categories_public_read" ON public.categories FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "categories_admin_write" ON public.categories FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "fabrics_public_read" ON public.fabrics FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "fabrics_admin_write" ON public.fabrics FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "colors_public_read" ON public.colors FOR SELECT USING (is_active = true OR public.is_admin());
+CREATE POLICY "colors_admin_write" ON public.colors FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "sizes_public_read" ON public.sizes FOR SELECT USING (is_active = true OR public.is_admin());
+CREATE POLICY "sizes_admin_write" ON public.sizes FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "products_public_read" ON public.products FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "products_admin_write" ON public.products FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "product_variants_public_read" ON public.product_variants FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "product_variants_admin_write" ON public.product_variants FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "shirt_models_public_read" ON public.shirt_models FOR SELECT USING (is_active = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "shirt_models_admin_write" ON public.shirt_models FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "shirt_views_public_read" ON public.shirt_views FOR SELECT USING (true);
+CREATE POLICY "shirt_views_admin_write" ON public.shirt_views FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "shirt_zones_public_read" ON public.shirt_zones FOR SELECT USING (is_active = true OR public.is_admin());
+CREATE POLICY "shirt_zones_admin_write" ON public.shirt_zones FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "design_templates_public_read" ON public.design_templates FOR SELECT USING (is_public = true AND deleted_at IS NULL OR public.is_admin());
+CREATE POLICY "design_templates_admin_write" ON public.design_templates FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Designs
-CREATE POLICY "Designs: Admins possuem acesso total" ON public.designs FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Designs: Clientes gerenciam exclusivamente seus próprios designs" ON public.designs FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Design Elements: Admins possuem acesso total" ON public.design_elements FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Design Elements: Clientes gerenciam elementos de seus próprios designs" ON public.design_elements FOR ALL USING (design_id IN (SELECT id FROM public.designs WHERE user_id = auth.uid() AND deleted_at IS NULL)) WITH CHECK (design_id IN (SELECT id FROM public.designs WHERE user_id = auth.uid() AND deleted_at IS NULL));
+CREATE POLICY "designs_admin_all" ON public.designs FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "designs_owner_all" ON public.designs FOR ALL USING (user_id = public.current_user_id()) WITH CHECK (user_id = public.current_user_id());
+CREATE POLICY "design_elements_admin_all" ON public.design_elements FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "design_elements_owner_all" ON public.design_elements FOR ALL USING (design_id IN (SELECT id FROM public.designs WHERE user_id = public.current_user_id() AND deleted_at IS NULL)) WITH CHECK (design_id IN (SELECT id FROM public.designs WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
 
 -- Comercial
-CREATE POLICY "Quotes: Admins possuem acesso total" ON public.quotes FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Quotes: Clientes visualizam e criam seus próprios orçamentos" ON public.quotes FOR ALL USING (user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)) WITH CHECK (user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL));
-CREATE POLICY "Quote Items: Admins possuem acesso total" ON public.quote_items FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Quote Items: Clientes acessam itens de seus orçamentos" ON public.quote_items FOR ALL USING (quote_id IN (SELECT id FROM public.quotes WHERE user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL))) WITH CHECK (quote_id IN (SELECT id FROM public.quotes WHERE user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)));
-CREATE POLICY "Orders: Admins possuem acesso total" ON public.orders FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Orders: Clientes visualizam seus próprios pedidos" ON public.orders FOR SELECT USING (user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL));
-CREATE POLICY "Orders: Clientes criam pedidos" ON public.orders FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Order Items: Admins possuem acesso total" ON public.order_items FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Order Items: Clientes visualizam itens de seus pedidos" ON public.order_items FOR SELECT USING (order_id IN (SELECT id FROM public.orders WHERE user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)));
+CREATE POLICY "quotes_admin_all" ON public.quotes FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "quotes_owner_all" ON public.quotes FOR ALL USING (user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)) WITH CHECK (user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
+CREATE POLICY "quote_items_admin_all" ON public.quote_items FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "quote_items_owner_all" ON public.quote_items FOR ALL USING (quote_id IN (SELECT id FROM public.quotes WHERE user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL))) WITH CHECK (quote_id IN (SELECT id FROM public.quotes WHERE user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)));
+CREATE POLICY "orders_admin_all" ON public.orders FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "orders_owner_select" ON public.orders FOR SELECT USING (user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
+CREATE POLICY "orders_owner_insert" ON public.orders FOR INSERT WITH CHECK (user_id = public.current_user_id());
+CREATE POLICY "order_items_admin_all" ON public.order_items FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "order_items_owner_select" ON public.order_items FOR SELECT USING (order_id IN (SELECT id FROM public.orders WHERE user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)));
 
 -- Equipe
-CREATE POLICY "Team Members: Admins possuem acesso total" ON public.team_members FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Team Members: Clientes gerenciam exclusivamente seus integrantes" ON public.team_members FOR ALL USING (customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)) WITH CHECK (customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL));
+CREATE POLICY "team_members_admin_all" ON public.team_members FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "team_members_owner_all" ON public.team_members FOR ALL USING (customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)) WITH CHECK (customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
 
 -- Produção
-CREATE POLICY "Production: Equipe de fábrica e admins possuem acesso total" ON public.production_orders FOR ALL USING (public.is_production_staff()) WITH CHECK (public.is_production_staff());
-CREATE POLICY "Production: Clientes podem acompanhar status da OP de seus pedidos" ON public.production_orders FOR SELECT USING (order_id IN (SELECT id FROM public.orders WHERE user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)));
-CREATE POLICY "Production Steps: Equipe de fábrica e admins possuem acesso total" ON public.production_steps FOR ALL USING (public.is_production_staff()) WITH CHECK (public.is_production_staff());
-CREATE POLICY "Production Steps: Clientes podem acompanhar etapas da OP de seus pedidos" ON public.production_steps FOR SELECT USING (production_order_id IN (SELECT po.id FROM public.production_orders po JOIN public.orders o ON o.id = po.order_id WHERE o.user_id = auth.uid() OR o.customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)));
+CREATE POLICY "production_orders_staff" ON public.production_orders FOR ALL USING (public.is_production_staff()) WITH CHECK (public.is_production_staff());
+CREATE POLICY "production_orders_client_read" ON public.production_orders FOR SELECT USING (order_id IN (SELECT id FROM public.orders WHERE user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)));
+CREATE POLICY "production_steps_staff" ON public.production_steps FOR ALL USING (public.is_production_staff()) WITH CHECK (public.is_production_staff());
+CREATE POLICY "production_steps_client_read" ON public.production_steps FOR SELECT USING (production_order_id IN (SELECT po.id FROM public.production_orders po JOIN public.orders o ON o.id = po.order_id WHERE o.user_id = public.current_user_id() OR o.customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)));
 
 -- Arquivos & Pagamentos
-CREATE POLICY "Files: Admins possuem acesso total" ON public.files FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Files: Clientes gerenciam apenas seus próprios arquivos" ON public.files FOR ALL USING (user_id = auth.uid() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL)) WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Payments: Admins possuem acesso total" ON public.payments FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
-CREATE POLICY "Payments: Clientes visualizam pagamentos de seus pedidos" ON public.payments FOR SELECT USING (customer_id IN (SELECT id FROM public.customers WHERE user_id = auth.uid() AND deleted_at IS NULL));
+CREATE POLICY "files_admin_all" ON public.files FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "files_owner_all" ON public.files FOR ALL USING (user_id = public.current_user_id() OR customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL)) WITH CHECK (user_id = public.current_user_id());
+CREATE POLICY "payments_admin_all" ON public.payments FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "payments_client_read" ON public.payments FOR SELECT USING (customer_id IN (SELECT id FROM public.customers WHERE user_id = public.current_user_id() AND deleted_at IS NULL));
