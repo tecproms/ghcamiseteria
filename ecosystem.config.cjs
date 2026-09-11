@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "ghcamiseteria",
-      script: "npm",
+      script: "node_modules/next/dist/bin/next",
       args: "start",
       instances: 1,
       autorestart: true,
