@@ -16,15 +16,20 @@ import {
   Loader2,
   LogIn,
   Shirt,
-  ShoppingBag,
   History,
   CreditCard,
+  RotateCcw,
+  Plus,
+  Trash2,
+  Users,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import type { Order, OrderStatus } from "@/types/orders";
+import type { TeamRoster, TeamMemberItem } from "@/types/team";
 
 export default function MeusPedidosPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -33,6 +38,167 @@ export default function MeusPedidosPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  // Estados para o Modal "Repetir Pedido"
+  const [repeatOrderTarget, setRepeatOrderTarget] = useState<Order | null>(null);
+  const [repeatQuantity, setRepeatQuantity] = useState<number>(1);
+  const [repeatBreakdown, setRepeatBreakdown] = useState<Record<string, number>>({});
+  const [repeatRoster, setRepeatRoster] = useState<TeamRoster | null>(null);
+  const [repeatNotes, setRepeatNotes] = useState<string>("");
+  const [repeatPricing, setRepeatPricing] = useState<{
+    unitPrice: number;
+    total: number;
+    discount: number;
+  } | null>(null);
+  const [repeatLoading, setRepeatLoading] = useState(false);
+  const [repeatCalculating, setRepeatCalculating] = useState(false);
+  const [repeatSuccessMessage, setRepeatSuccessMessage] = useState<string | null>(null);
+
+  const openRepeatModal = (order: Order) => {
+    const item = order.items?.[0];
+    const snapshot = item?.snapshot_data;
+    const roster: TeamRoster | null = snapshot?.team_roster
+      ? JSON.parse(JSON.stringify(snapshot.team_roster))
+      : null;
+    const breakdown = snapshot?.size_breakdown
+      ? JSON.parse(JSON.stringify(snapshot.size_breakdown))
+      : { M: item?.quantity || 10 };
+    const qty = roster?.enabled && roster.members?.length > 0
+      ? roster.members.length
+      : (item?.quantity || 10);
+
+    setRepeatOrderTarget(order);
+    setRepeatQuantity(qty);
+    setRepeatBreakdown(breakdown);
+    setRepeatRoster(roster);
+    setRepeatNotes("");
+    setRepeatSuccessMessage(null);
+    setRepeatPricing({
+      unitPrice: item?.unit_price || 0,
+      total: order.total_amount || 0,
+      discount: order.discount_amount || 0,
+    });
+  };
+
+  const calculateRepeatPrice = async (targetOrder: Order, qty: number, roster: TeamRoster | null) => {
+    setRepeatCalculating(true);
+    try {
+      const res = await fetch(`/api/pedidos/${targetOrder.id}/repeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preview_only: true,
+          quantity: qty,
+          team_roster: roster,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.pricing) {
+        setRepeatPricing({
+          unitPrice: data.pricing.unitPrice,
+          total: data.pricing.total,
+          discount: data.pricing.volumeDiscountAmount || 0,
+        });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRepeatCalculating(false);
+    }
+  };
+
+  const handleUpdateQuantity = (newQty: number) => {
+    const safeQty = Math.max(1, newQty);
+    setRepeatQuantity(safeQty);
+    if (repeatOrderTarget) {
+      calculateRepeatPrice(repeatOrderTarget, safeQty, repeatRoster);
+    }
+  };
+
+  const handleUpdateBreakdown = (size: string, count: number) => {
+    const updated = { ...repeatBreakdown, [size]: Math.max(0, count) };
+    if (updated[size] === 0) delete updated[size];
+    setRepeatBreakdown(updated);
+    const sum = Object.values(updated).reduce((acc, c) => acc + c, 0);
+    if (sum > 0) {
+      setRepeatQuantity(sum);
+      if (repeatOrderTarget) {
+        calculateRepeatPrice(repeatOrderTarget, sum, repeatRoster);
+      }
+    }
+  };
+
+  const handleAddRosterMember = () => {
+    if (!repeatRoster) return;
+    const newMembers = [
+      ...(repeatRoster.members || []),
+      {
+        id: `m-${Date.now()}`,
+        name: "",
+        number: "",
+        size: "M",
+      },
+    ];
+    const updatedRoster = { ...repeatRoster, members: newMembers };
+    setRepeatRoster(updatedRoster);
+    const newQty = newMembers.length;
+    setRepeatQuantity(newQty);
+    if (repeatOrderTarget) {
+      calculateRepeatPrice(repeatOrderTarget, newQty, updatedRoster);
+    }
+  };
+
+  const handleRemoveRosterMember = (index: number) => {
+    if (!repeatRoster || !repeatRoster.members) return;
+    const newMembers = repeatRoster.members.filter((_: TeamMemberItem, i: number) => i !== index);
+    const updatedRoster = { ...repeatRoster, members: newMembers };
+    setRepeatRoster(updatedRoster);
+    const newQty = Math.max(1, newMembers.length);
+    setRepeatQuantity(newQty);
+    if (repeatOrderTarget) {
+      calculateRepeatPrice(repeatOrderTarget, newQty, updatedRoster);
+    }
+  };
+
+  const handleUpdateRosterMember = (index: number, field: string, value: string) => {
+    if (!repeatRoster || !repeatRoster.members) return;
+    const newMembers = [...repeatRoster.members];
+    newMembers[index] = { ...newMembers[index], [field]: value };
+    setRepeatRoster({ ...repeatRoster, members: newMembers });
+  };
+
+  const handleConfirmRepeat = async () => {
+    if (!repeatOrderTarget) return;
+    setRepeatLoading(true);
+    try {
+      const res = await fetch(`/api/pedidos/${repeatOrderTarget.id}/repeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preview_only: false,
+          quantity: repeatQuantity,
+          size_breakdown: repeatBreakdown,
+          team_roster: repeatRoster,
+          notes: repeatNotes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRepeatSuccessMessage(
+          `Novo pedido/orçamento ${data.quote?.quote_number || ""} gerado com sucesso! Redirecionando...`
+        );
+        setTimeout(() => {
+          window.location.href = "/meus-orcamentos";
+        }, 1500);
+      } else {
+        alert(data.error || "Erro ao repetir pedido.");
+      }
+    } catch {
+      alert("Erro de conexão ao repetir pedido.");
+    } finally {
+      setRepeatLoading(false);
+    }
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -377,6 +543,15 @@ export default function MeusPedidosPage() {
                       <Eye className="h-3.5 w-3.5" />
                       Visualizar Pedido & Snapshot
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openRepeatModal(order)}
+                      className="w-full h-8 text-xs border-[#d4af37]/60 text-amber-700 dark:text-[#d4af37] hover:bg-[#d4af37]/10 font-semibold gap-1.5 shadow-sm"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-[#d4af37]" />
+                      Repetir Pedido
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -578,8 +753,8 @@ export default function MeusPedidosPage() {
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-              <div>
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 {selectedOrder.status === "PENDING_PAYMENT" && (
                   <Link href={`/pagamento/${selectedOrder.id}`}>
                     <Button
@@ -591,13 +766,302 @@ export default function MeusPedidosPage() {
                     </Button>
                   </Link>
                 )}
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const target = selectedOrder;
+                    setSelectedOrder(null);
+                    openRepeatModal(target);
+                  }}
+                  className="h-8 px-4 text-xs bg-[#d4af37] hover:bg-[#c29d2f] text-zinc-950 font-bold gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Repetir Este Pedido
+                </Button>
               </div>
               <Button
                 size="sm"
                 onClick={() => setSelectedOrder(null)}
-                className="h-8 px-4 text-xs bg-slate-900 text-white dark:bg-[#d4af37] dark:text-zinc-950 font-semibold"
+                className="h-8 px-4 text-xs bg-slate-900 text-white dark:bg-zinc-800 dark:text-zinc-200 font-semibold"
               >
                 Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Repetir Pedido */}
+      {repeatOrderTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 space-y-5 max-h-[92vh] overflow-y-auto">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-[#d4af37]/20 flex items-center justify-center text-[#b38f26] dark:text-[#d4af37]">
+                  <RotateCcw className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Repetir Pedido
+                    <span className="font-mono text-xs text-[#d4af37] font-semibold">
+                      (Base: {repeatOrderTarget.order_number})
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Crie um novo orçamento mantendo as artes e personalizações congeladas.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRepeatOrderTarget(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Aviso de Inviolabilidade */}
+            <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-900 dark:text-amber-300 flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#d4af37] shrink-0 mt-0.5" />
+              <span>
+                <strong>Garantia de Integridade:</strong> O pedido anterior <strong>{repeatOrderTarget.order_number}</strong> não sofrerá qualquer modificação. Uma nova solicitação de cotação/pedido será gerada com os novos quantitativos e integrantes definidos abaixo.
+              </span>
+            </div>
+
+            {/* Resumo do Modelo & Cor */}
+            {repeatOrderTarget.items?.[0] && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                    Modelo de Referência
+                  </span>
+                  <strong className="text-slate-900 dark:text-white text-sm">
+                    {repeatOrderTarget.items[0].model_name}
+                  </strong>
+                </div>
+                {repeatOrderTarget.items[0].color && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-4 w-4 rounded-full border border-slate-300"
+                      style={{ backgroundColor: repeatOrderTarget.items[0].color.hex }}
+                    />
+                    <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                      {repeatOrderTarget.items[0].color.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Ajuste de Quantidade & Grade */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Quantidade Total de Peças
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={repeatQuantity}
+                    onChange={(e) => handleUpdateQuantity(Number(e.target.value))}
+                    className="w-24 h-8 text-center font-mono font-bold text-xs"
+                    disabled={repeatRoster?.enabled && repeatRoster.members?.length > 0}
+                  />
+                  <span className="text-xs text-slate-500">peças</span>
+                </div>
+              </div>
+
+              {/* Seletor de Grade de Tamanhos */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-2">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 block">
+                  Distribuição por Tamanho (Grade):
+                </span>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {["PP", "P", "M", "G", "GG", "XG"].map((sz) => {
+                    const count = repeatBreakdown[sz] || 0;
+                    return (
+                      <div
+                        key={sz}
+                        className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center space-y-1"
+                      >
+                        <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono">
+                          {sz}
+                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateBreakdown(sz, count - 1)}
+                            className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-xs font-bold text-slate-600"
+                          >
+                            -
+                          </button>
+                          <span className="font-mono text-xs font-bold text-slate-900 dark:text-white min-w-[18px]">
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateBreakdown(sz, count + 1)}
+                            className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-xs font-bold text-slate-600"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Integrantes da Equipe (Team Roster) */}
+            {repeatRoster && (
+              <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    <Users className="h-4 w-4 text-[#d4af37]" />
+                    <span>Integrantes da Equipe ({repeatRoster.members?.length || 0})</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAddRosterMember}
+                    className="h-7 text-xs gap-1 border-dashed border-[#d4af37]/60 text-[#b38f26] dark:text-[#d4af37]"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Adicionar Integrante
+                  </Button>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {repeatRoster.members?.map((m: TeamMemberItem, idx: number) => (
+                    <div
+                      key={m.id || idx}
+                      className="p-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center gap-2 text-xs"
+                    >
+                      <span className="text-[10px] font-mono text-slate-400 w-5 text-center">
+                        #{idx + 1}
+                      </span>
+                      <Input
+                        placeholder="Nome do integrante"
+                        value={m.name || ""}
+                        onChange={(e) => handleUpdateRosterMember(idx, "name", e.target.value)}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Input
+                        placeholder="Nº"
+                        value={m.number || ""}
+                        onChange={(e) => handleUpdateRosterMember(idx, "number", e.target.value)}
+                        className="h-7 text-xs w-16 text-center font-mono"
+                      />
+                      <select
+                        value={m.size || "M"}
+                        onChange={(e) => handleUpdateRosterMember(idx, "size", e.target.value)}
+                        className="h-7 rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 text-xs font-mono font-bold"
+                      >
+                        {["PP", "P", "M", "G", "GG", "XG"].map((sz) => (
+                          <option key={sz} value={sz}>
+                            {sz}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRosterMember(idx)}
+                        className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Observações da Repetição */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
+                Observações para a nova confecção (Opcional):
+              </label>
+              <Input
+                placeholder="Ex: Mesmas cores do pedido anterior, apenas adicionando mais 5 membros."
+                value={repeatNotes}
+                onChange={(e) => setRepeatNotes(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            {/* Resumo de Preço Recalculado */}
+            <div className="p-3.5 rounded-xl bg-slate-900 text-white dark:bg-zinc-950 dark:border dark:border-[#d4af37]/30 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Recálculo Comercial:</span>
+                {repeatCalculating && (
+                  <span className="text-xs text-[#d4af37] flex items-center gap-1 font-semibold">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Atualizando preço...
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-slate-800">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Quantidade:</span>
+                  <strong className="font-mono text-white text-sm">{repeatQuantity} peças</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Preço Unitário:</span>
+                  <strong className="font-mono text-white text-sm">
+                    R$ {repeatPricing ? repeatPricing.unitPrice.toFixed(2) : "—"}
+                  </strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Total Estimado:</span>
+                  <strong className="font-mono text-base font-extrabold text-[#d4af37]">
+                    R$ {repeatPricing ? repeatPricing.total.toFixed(2) : "—"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Mensagem de Sucesso */}
+            {repeatSuccessMessage && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>{repeatSuccessMessage}</span>
+              </div>
+            )}
+
+            {/* Ações do Modal */}
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRepeatOrderTarget(null)}
+                disabled={repeatLoading}
+                className="h-9 px-4 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmRepeat}
+                disabled={repeatLoading}
+                className="h-9 px-5 text-xs bg-[#d4af37] hover:bg-[#bfa034] text-zinc-950 font-bold gap-2 shadow-md"
+              >
+                {repeatLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Gerando Novo Pedido...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4" />
+                    Confirmar e Gerar Novo Orçamento
+                  </>
+                )}
               </Button>
             </div>
           </div>

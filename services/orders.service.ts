@@ -4,6 +4,8 @@
 
 import { pool } from "@/lib/db";
 import { QuotesService } from "@/services/quotes.service";
+import type { Quote } from "@/types/quotes";
+import type { TeamRoster } from "@/types/team";
 import type {
   Order,
   OrderItem,
@@ -589,5 +591,112 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  /**
+   * Repetir Pedido Anterior:
+   * 1. Localiza o pedido original
+   * 2. Clona a configuração técnica (views, tecidos, cores, elementos)
+   * 3. Permite alteração da quantidade
+   * 4. Permite alteração de integrantes da equipe
+   * 5. Recalcula o preço no servidor via QuotesService/PricingService
+   * 6. Gera nova cotação/pedido oficial referenciando a origem
+   * REGRA DE SEGURANÇA: O pedido original NUNCA é modificado
+   */
+  static async repeatOrder(
+    orderId: string,
+    userId: string,
+    overrides?: {
+      quantity?: number;
+      size_breakdown?: Record<string, number>;
+      team_roster?: TeamRoster | null;
+      notes?: string;
+    }
+  ): Promise<{
+    quote: Quote;
+    originalOrder: { id: string; order_number: string };
+  }> {
+    const originalOrder = await this.getOrderById(orderId, userId, false);
+    if (!originalOrder) {
+      throw new Error("Pedido de origem não encontrado.");
+    }
+
+    const firstItem = originalOrder.items?.[0];
+    if (!firstItem) {
+      throw new Error("O pedido original não possui itens configurados.");
+    }
+
+    const snapshot = firstItem.snapshot_data;
+
+    // Integrantes da equipe
+    let newRoster: TeamRoster | undefined = undefined;
+    if (overrides?.team_roster !== undefined) {
+      newRoster = overrides.team_roster || undefined;
+    } else if (snapshot?.team_roster) {
+      newRoster = JSON.parse(JSON.stringify(snapshot.team_roster));
+    }
+
+    // Quantidade
+    let newQuantity = overrides?.quantity;
+    if (newQuantity === undefined || newQuantity <= 0) {
+      if (newRoster?.enabled && newRoster.members && newRoster.members.length > 0) {
+        newQuantity = newRoster.members.length;
+      } else {
+        newQuantity = firstItem.quantity || 1;
+      }
+    }
+
+    // Grade de tamanhos
+    let newSizeBreakdown = overrides?.size_breakdown;
+    if (!newSizeBreakdown || Object.keys(newSizeBreakdown).length === 0) {
+      if (newRoster?.enabled && newRoster.members && newRoster.members.length > 0) {
+        newSizeBreakdown = {};
+        newRoster.members.forEach((m) => {
+          const sz = (m.size || "M").toUpperCase();
+          newSizeBreakdown![sz] = (newSizeBreakdown![sz] || 0) + 1;
+        });
+      } else if (snapshot?.size_breakdown) {
+        newSizeBreakdown = JSON.parse(JSON.stringify(snapshot.size_breakdown));
+      } else {
+        newSizeBreakdown = { M: newQuantity };
+      }
+    }
+
+    // Views
+    const newViews = snapshot?.views
+      ? JSON.parse(JSON.stringify(snapshot.views))
+      : {};
+
+    const color = snapshot?.color
+      ? JSON.parse(JSON.stringify(snapshot.color))
+      : firstItem.color || { id: "default", name: "Padrão", hex: "#FFFFFF" };
+
+    const notesText = overrides?.notes
+      ? `Repetição baseada no Pedido ${originalOrder.order_number}. Obs: ${overrides.notes}`
+      : `Novo pedido baseado no pedido anterior ${originalOrder.order_number}.`;
+
+    // Criar nova cotação oficial através do QuotesService (com recálculo automático de preço no servidor)
+    const newQuote = await QuotesService.createQuote(userId, {
+      shirt_model_id: snapshot?.shirt_model_id || firstItem.shirt_model_id,
+      model_name: snapshot?.model_name || firstItem.model_name,
+      product_id: snapshot?.product_id || firstItem.product_id,
+      color,
+      quantity: newQuantity,
+      views: newViews,
+      teamRoster: newRoster,
+      notes: notesText,
+      customer_name: originalOrder.customer_info?.name,
+      customer_email: originalOrder.customer_info?.email,
+      customer_phone: originalOrder.customer_info?.phone,
+      customer_company: originalOrder.customer_info?.company,
+    });
+
+    return {
+      quote: newQuote,
+      originalOrder: {
+        id: originalOrder.id,
+        order_number: originalOrder.order_number,
+      },
+    };
   }
 }
