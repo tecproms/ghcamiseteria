@@ -18,11 +18,14 @@ import {
   X,
   Users,
   Coins,
+  FileText,
+  Send,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PricingCalculationResult } from "@/types/pricing";
+import { useAuth } from "@/hooks/use-auth";
 
 export function EditorToolbar() {
   const {
@@ -47,6 +50,7 @@ export function EditorToolbar() {
     setQuantity,
     getSerializableConfig,
     teamRoster,
+    getTeamRosterSummary,
   } = useConfiguratorStore();
 
   const [isValidating, setIsValidating] = useState(false);
@@ -58,6 +62,20 @@ export function EditorToolbar() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const { user, profile } = useAuth();
+
+  // Estados da Solicitação de Orçamento
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+  const [quoteNotes, setQuoteNotes] = useState("");
+  const [quoteContactName, setQuoteContactName] = useState("");
+  const [quoteContactPhone, setQuoteContactPhone] = useState("");
+  const [quoteResult, setQuoteResult] = useState<{
+    success: boolean;
+    quoteNumber?: string;
+    message?: string;
+  } | null>(null);
 
   // Estados do Motor de Preços (Server-Side Recalculation)
   const [pricingResult, setPricingResult] = useState<PricingCalculationResult | null>(null);
@@ -204,6 +222,66 @@ export function EditorToolbar() {
     }
   };
 
+  // Solicitar Orçamento Oficial
+  const handleRequestQuote = async () => {
+    if (!selectedModel) return;
+    setIsSubmittingQuote(true);
+    setQuoteResult(null);
+
+    const config = getSerializableConfig();
+    const effectiveQty =
+      teamRoster.enabled && teamRoster.members.length > 0
+        ? teamRoster.members.length
+        : quantity;
+
+    try {
+      const res = await fetch("/api/orcamentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shirt_model_id: selectedModel.id,
+          model_name: selectedModel.name,
+          color: config.color,
+          quantity: effectiveQty,
+          views: elements,
+          teamRoster: teamRoster.enabled ? teamRoster : undefined,
+          notes: quoteNotes,
+          customer_name: quoteContactName || profile?.full_name || undefined,
+          customer_email: user?.email || undefined,
+          customer_phone: quoteContactPhone || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 401) {
+        setQuoteResult({
+          success: false,
+          message: "Você precisa fazer login para enviar uma solicitação de orçamento.",
+        });
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Falha ao solicitar orçamento.");
+      }
+
+      setQuoteResult({
+        success: true,
+        quoteNumber: data.quote?.quote_number || "ORC-NOVO",
+        message: "Orçamento solicitado com sucesso! Nossa equipe analisará os detalhes.",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao solicitar orçamento";
+      setQuoteResult({
+        success: false,
+        message: msg,
+      });
+    } finally {
+      setIsSubmittingQuote(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm">
@@ -343,6 +421,34 @@ export function EditorToolbar() {
               )}
             </button>
           )}
+
+          {/* Botão Solicitar Orçamento */}
+          <Button
+            size="sm"
+            onClick={() => {
+              if (profile?.full_name && !quoteContactName) {
+                setQuoteContactName(profile.full_name);
+              }
+              setIsQuoteModalOpen(true);
+            }}
+            className="h-8 px-3 text-xs bg-[#d4af37] hover:bg-[#c59b27] text-zinc-950 font-bold gap-1.5 shadow-sm"
+            title="Transformar esta configuração em uma solicitação real de orçamento"
+          >
+            <Send className="h-3.5 w-3.5" />
+            <span>Solicitar Orçamento</span>
+          </Button>
+
+          <Link href="/meus-orcamentos">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs text-slate-700 dark:text-zinc-300 gap-1.5 border-slate-300 dark:border-zinc-700"
+              title="Acessar cotações e orçamentos solicitados"
+            >
+              <FileText className="h-3.5 w-3.5 text-[#d4af37]" />
+              <span className="hidden sm:inline">Orçamentos</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -601,6 +707,209 @@ export function EditorToolbar() {
                 Fechar Detalhes
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Solicitação de Orçamento */}
+      {isQuoteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-[#d4af37]/15 flex items-center justify-center text-[#d4af37]">
+                  <Send className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Solicitar Orçamento Oficial
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Nossa equipe comercial analisará os detalhes técnicos e enviará a proposta com valores e prazos.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsQuoteModalOpen(false);
+                  setQuoteResult(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {quoteResult?.success ? (
+              <div className="py-6 text-center space-y-4">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                    Orçamento Solicitado com Sucesso!
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Número de Protocolo:{" "}
+                    <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                      {quoteResult.quoteNumber}
+                    </strong>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-zinc-300 max-w-sm mx-auto pt-2">
+                    Sua solicitação está como <span className="font-semibold text-amber-600">PENDENTE</span>. Você receberá a notificação assim que nossa equipe precificar e enviar o valor formal.
+                  </p>
+                </div>
+
+                <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+                  <Link href="/meus-orcamentos" className="w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      className="w-full h-9 px-4 text-xs bg-[#d4af37] hover:bg-[#c59b27] text-zinc-950 font-bold gap-1.5"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>Ver Meus Orçamentos</span>
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsQuoteModalOpen(false);
+                      setQuoteResult(null);
+                    }}
+                    className="w-full sm:w-auto h-9 px-4 text-xs"
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Resumo da Peça e Quantidade */}
+                <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl text-xs space-y-2 border border-slate-200/60 dark:border-zinc-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Modelo Selecionado:</span>
+                    <strong className="text-slate-900 dark:text-white font-medium">{selectedModel?.name}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Cor do Tecido:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border border-slate-300"
+                        style={{ backgroundColor: selectedColor?.hex || "#FFFFFF" }}
+                      />
+                      <span className="font-medium text-slate-800 dark:text-zinc-200">{selectedColor?.name}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Quantidade Total:</span>
+                    <strong className="text-slate-900 dark:text-white">
+                      {teamRoster.enabled && teamRoster.members.length > 0
+                        ? `${teamRoster.members.length} peças (Grade de Equipe)`
+                        : `${quantity} peças`}
+                    </strong>
+                  </div>
+
+                  {teamRoster.enabled && teamRoster.members.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400">
+                      <span className="font-semibold text-slate-700 dark:text-zinc-300 block mb-1">Distribuição de Tamanhos:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(getTeamRosterSummary().sizeBreakdown).map(([sz, qty]) => (
+                          <span key={sz} className="px-2 py-0.5 rounded bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 font-mono font-medium">
+                            {sz}: {qty}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {pricingResult && (
+                    <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                      <span className="font-semibold text-slate-700 dark:text-zinc-300">Estimativa Prévia do Sistema:</span>
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-sm">
+                        R$ {pricingResult.total.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Campos do Formulário */}
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                      Observações / Requisitos Especiais (opcional)
+                    </label>
+                    <textarea
+                      value={quoteNotes}
+                      onChange={(e) => setQuoteNotes(e.target.value)}
+                      placeholder="Ex: Prazo limite para entrega, tipo de acabamento, detalhes da serigrafia/bordado..."
+                      rows={3}
+                      className="w-full text-xs rounded-lg border border-slate-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#d4af37]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                        Nome para Contato
+                      </label>
+                      <Input
+                        value={quoteContactName}
+                        onChange={(e) => setQuoteContactName(e.target.value)}
+                        placeholder="Seu nome ou empresa"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                        WhatsApp / Telefone
+                      </label>
+                      <Input
+                        value={quoteContactPhone}
+                        onChange={(e) => setQuoteContactPhone(e.target.value)}
+                        placeholder="(00) 00000-0000"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {quoteResult && !quoteResult.success && (
+                  <div className="p-2.5 rounded-lg text-xs font-medium border bg-red-50 border-red-200 text-red-800 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+                    <span>{quoteResult.message}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsQuoteModalOpen(false);
+                      setQuoteResult(null);
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >
+                    Cancelar
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    onClick={handleRequestQuote}
+                    disabled={isSubmittingQuote}
+                    className="h-8 px-4 text-xs bg-[#d4af37] hover:bg-[#c59b27] text-zinc-950 font-bold gap-1.5 shadow-sm"
+                  >
+                    {isSubmittingQuote ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    <span>{isSubmittingQuote ? "Enviando..." : "Confirmar Solicitação"}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
