@@ -328,6 +328,24 @@ export function KonvaConfiguratorStage() {
               lineJoin="round"
             />
 
+            {/* 2.1 Efeito de Luz e Volume Fotográfico (Destaque tridimensional realista) */}
+            <Path
+              data={garmentTemplate.path}
+              fillLinearGradientStartPoint={{ x: 400, y: 80 }}
+              fillLinearGradientEndPoint={{ x: 400, y: 730 }}
+              fillLinearGradientColorStops={[
+                0,
+                "rgba(255,255,255,0.16)",
+                0.25,
+                "rgba(255,255,255,0.05)",
+                0.65,
+                "rgba(0,0,0,0.02)",
+                1,
+                "rgba(0,0,0,0.16)",
+              ]}
+              listening={false}
+            />
+
             {/* 3. Sombras Anatômicas de Dobras Naturais e Caimento */}
             {garmentTemplate.shadowPath && (
               <Path

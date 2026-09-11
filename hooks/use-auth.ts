@@ -26,6 +26,19 @@ export function useAuth() {
 
     async function getUserData() {
       try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (data.success && data.user) {
+          setUser(data.user);
+          setProfile(data.profile);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback para Supabase se configurado
+      }
+
+      try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -68,6 +81,16 @@ export function useAuth() {
   }, []);
 
   const refreshProfile = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.success && data.profile) {
+        setProfile(data.profile);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
     if (!user) return;
     const profileData = await fetchProfile(user.id);
     setProfile(profileData);
