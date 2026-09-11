@@ -17,10 +17,12 @@ import {
   CheckCircle2,
   X,
   Users,
+  Coins,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { PricingCalculationResult } from "@/types/pricing";
 
 export function EditorToolbar() {
   const {
@@ -56,6 +58,46 @@ export function EditorToolbar() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Estados do Motor de Preços (Server-Side Recalculation)
+  const [pricingResult, setPricingResult] = useState<PricingCalculationResult | null>(null);
+  const [isPriceDetailsOpen, setIsPriceDetailsOpen] = useState(false);
+
+  // Recalcular preço 100% no servidor sempre que houver alterações
+  React.useEffect(() => {
+    let isMounted = true;
+    const calculatePrice = async () => {
+      try {
+        const effectiveQty = teamRoster.enabled && teamRoster.members.length > 0
+          ? teamRoster.members.length
+          : quantity;
+
+        const res = await fetch("/api/pricing/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shirtModelId: selectedModel?.id,
+            modelName: selectedModel?.name,
+            quantity: effectiveQty,
+            views: elements,
+            teamRoster: teamRoster.enabled ? teamRoster : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (isMounted && data.success && data.pricing) {
+          setPricingResult(data.pricing);
+        }
+      } catch {
+        // Fallback silencioso
+      }
+    };
+
+    const timer = setTimeout(calculatePrice, 300);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [selectedModel, elements, quantity, teamRoster]);
 
   // Executar validação no backend
   const handleValidateOnBackend = async () => {
@@ -281,6 +323,26 @@ export function EditorToolbar() {
               <span>Equipe ({teamRoster.members.length})</span>
             </div>
           )}
+
+          {/* Orçamento Dinâmico Calculado no Servidor */}
+          {pricingResult && (
+            <button
+              onClick={() => setIsPriceDetailsOpen(true)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-900 dark:text-emerald-300 transition-colors shadow-xs"
+              title="Clique para ver o detalhamento do orçamento oficial recalculado no servidor"
+            >
+              <Coins className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>R$ {pricingResult.unitPrice.toFixed(2)}/un.</span>
+              <span className="text-emerald-700/80 dark:text-emerald-400/80 font-normal hidden sm:inline">
+                (Total: R$ {pricingResult.total.toFixed(2)})
+              </span>
+              {pricingResult.discountPercent > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-600 text-white font-bold">
+                  {pricingResult.discountPercent}% OFF
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -427,6 +489,116 @@ export function EditorToolbar() {
               >
                 {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 <span>{isSaving ? "Salvando..." : currentProjectId ? "Atualizar" : "Salvar Projeto"}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhamento do Orçamento (Cálculo Oficial do Servidor) */}
+      {isPriceDetailsOpen && pricingResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600">
+                  <Coins className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Detalhamento do Orçamento
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Cálculo oficial recalculado no servidor em tempo real.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPriceDetailsOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                <span>Preço Base ({selectedModel?.name || "Camiseta"}):</span>
+                <span className="font-mono font-medium">R$ {pricingResult.unitBasePrice.toFixed(2)}</span>
+              </div>
+
+              {pricingResult.breakdown.elements.length > 0 && (
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800 space-y-1">
+                  <div className="font-semibold text-slate-700 dark:text-zinc-300 mb-1">Personalizações por Peça:</div>
+                  {pricingResult.breakdown.elements.map((el, i) => (
+                    <div key={i} className="flex justify-between text-[11px] text-slate-500">
+                      <span>• {el.description}</span>
+                      <span className="font-mono">+R$ {el.unitPrice.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {pricingResult.breakdown.positions.map((pos, i) => (
+                    <div key={i} className="flex justify-between text-[11px] text-slate-500">
+                      <span>• {pos.description}</span>
+                      <span className="font-mono">+R$ {pos.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-between font-semibold text-slate-800 dark:text-zinc-200 pt-1 border-t">
+                <span>Preço Bruto Unitário:</span>
+                <span className="font-mono">R$ {pricingResult.unitPriceBeforeDiscount.toFixed(2)}</span>
+              </div>
+
+              {pricingResult.discountPercent > 0 && (
+                <div className="flex justify-between text-emerald-600 font-semibold">
+                  <span>Desconto por Volume ({pricingResult.discountPercent}% OFF):</span>
+                  <span className="font-mono">-R$ {pricingResult.unitDiscountAmount.toFixed(2)} / un</span>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 flex justify-between items-center font-bold">
+                <span className="text-slate-900 dark:text-white">Preço Unitário Líquido:</span>
+                <span className="text-base font-mono text-emerald-700 dark:text-emerald-400">
+                  R$ {pricingResult.unitPrice.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1">
+                <div className="flex justify-between text-slate-500">
+                  <span>Quantidade:</span>
+                  <strong className="text-slate-900 dark:text-white">{pricingResult.quantity} peças</strong>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal Bruto:</span>
+                  <span className="font-mono">R$ {pricingResult.subtotal.toFixed(2)}</span>
+                </div>
+                {pricingResult.totalDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Economia Total:</span>
+                    <span className="font-mono">-R$ {pricingResult.totalDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                {pricingResult.additionals > 0 && (
+                  <div className="flex justify-between text-amber-600 font-medium">
+                    <span>Taxas Adicionais:</span>
+                    <span className="font-mono">+R$ {pricingResult.additionals.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-extrabold text-slate-900 dark:text-white pt-2 border-t">
+                  <span>VALOR TOTAL DO PEDIDO:</span>
+                  <span className="font-mono text-[#d4af37]">R$ {pricingResult.total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => setIsPriceDetailsOpen(false)}
+                className="h-8 px-4 text-xs bg-slate-900 text-white dark:bg-[#d4af37] dark:text-zinc-950"
+              >
+                Fechar Detalhes
               </Button>
             </div>
           </div>

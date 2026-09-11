@@ -12,6 +12,7 @@ import {
   FileText,
   Factory,
   ArrowLeft,
+  Coins,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
@@ -21,6 +22,7 @@ export const adminNavItems = [
   { href: "/admin/pedidos", label: "Pedidos", icon: Package },
   { href: "/admin/producao", label: "Produção", icon: Factory },
   { href: "/admin/modelos", label: "Modelos & Zonas", icon: Palette },
+  { href: "/admin/precos", label: "Tabela de Preços", icon: Coins },
   { href: "/admin/produtos", label: "Catálogo Base", icon: Layers },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
 ];
