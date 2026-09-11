@@ -86,7 +86,15 @@ function CadastroForm() {
               alt="GH Camiseteria"
               width={56}
               height={56}
-              className="object-contain"
+              className="object-contain dark:hidden"
+              priority
+            />
+            <Image
+              src="/logo-dark.png"
+              alt="GH Camiseteria"
+              width={56}
+              height={56}
+              className="object-contain hidden dark:block"
               priority
             />
           </div>
@@ -98,7 +106,7 @@ function CadastroForm() {
 
         <CardContent className="space-y-4">
           {errorMessage && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900/60 p-3 text-xs text-red-800 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
               <span>{errorMessage}</span>
             </div>

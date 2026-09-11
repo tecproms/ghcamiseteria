@@ -106,7 +106,15 @@ function LoginForm() {
               alt="GH Camiseteria"
               width={56}
               height={56}
-              className="object-contain"
+              className="object-contain dark:hidden"
+              priority
+            />
+            <Image
+              src="/logo-dark.png"
+              alt="GH Camiseteria"
+              width={56}
+              height={56}
+              className="object-contain hidden dark:block"
               priority
             />
           </div>
@@ -123,21 +131,21 @@ function LoginForm() {
         <CardContent className="space-y-4">
           {/* Alertas de Erro e Sucesso */}
           {errorMessage && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900/60 p-3 text-xs text-red-800 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {successMessage && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+            <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-900/60 p-3 text-xs text-emerald-800 dark:text-emerald-300">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
               <span>{successMessage}</span>
             </div>
           )}
 
           {/* Alternador de Modo */}
-          <div className="flex rounded-lg bg-slate-100 p-1">
+          <div className="flex rounded-lg bg-slate-100 dark:bg-zinc-800/80 p-1">
             <button
               type="button"
               onClick={() => {
@@ -146,7 +154,9 @@ function LoginForm() {
                 setSuccessMessage(null);
               }}
               className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                !isSignUp ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                !isSignUp
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-900 dark:text-[#d4af37]"
+                  : "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
               Entrar
@@ -159,7 +169,9 @@ function LoginForm() {
                 setSuccessMessage(null);
               }}
               className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                isSignUp ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                isSignUp
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-900 dark:text-[#d4af37]"
+                  : "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200"
               }`}
             >
               Cadastrar
@@ -208,7 +220,7 @@ function LoginForm() {
                 E-mail Corporativo ou Pessoal
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                 <Input
                   required
                   type="email"
@@ -222,18 +234,18 @@ function LoginForm() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-slate-700">Senha</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">Senha</label>
                 {!isSignUp && (
                   <Link
                     href="/recuperar-senha"
-                    className="text-xs text-slate-500 hover:text-slate-900 transition-colors"
+                    className="text-xs text-slate-500 hover:text-slate-900 dark:text-[#d4af37] dark:hover:text-amber-300 transition-colors"
                   >
                     Esqueceu a senha?
                   </Link>
                 )}
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                 <Input
                   required
                   type="password"
@@ -262,7 +274,7 @@ function LoginForm() {
           <div className="text-center pt-2">
             <Link
               href="/admin/dashboard"
-              className="text-xs text-slate-500 hover:text-slate-800 underline transition-colors"
+              className="text-xs text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-[#d4af37] underline transition-colors"
             >
               Acesso ao Painel Administrativo Interno →
             </Link>

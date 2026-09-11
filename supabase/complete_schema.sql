@@ -228,8 +228,10 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
 -- Modelos de Uniforme
 CREATE TABLE IF NOT EXISTS public.shirt_models (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    description TEXT,
+    base_asset_url TEXT,
     collar_type collar_type NOT NULL DEFAULT 'careca',
     sleeve_type sleeve_type NOT NULL DEFAULT 'curta',
     default_color_id UUID REFERENCES public.colors(id) ON DELETE SET NULL,
@@ -240,12 +242,14 @@ CREATE TABLE IF NOT EXISTS public.shirt_models (
     deleted_at TIMESTAMPTZ
 );
 
--- Vistas Técnicas
+-- Vistas Técnicas (Frente, Costas, Mangas)
 CREATE TABLE IF NOT EXISTS public.shirt_views (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     shirt_model_id UUID NOT NULL REFERENCES public.shirt_models(id) ON DELETE CASCADE,
     view_side view_side NOT NULL,
     preview_image_url TEXT NOT NULL,
+    svg_overlay_url TEXT,
+    svg_content TEXT,
     canvas_width INTEGER NOT NULL DEFAULT 1200 CHECK (canvas_width > 0),
     canvas_height INTEGER NOT NULL DEFAULT 1200 CHECK (canvas_height > 0),
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -254,17 +258,24 @@ CREATE TABLE IF NOT EXISTS public.shirt_views (
     CONSTRAINT uq_shirt_view_side UNIQUE (shirt_model_id, view_side)
 );
 
--- Zonas de Aplicação
+-- Zonas de Aplicação / Impressão Configuráveis
 CREATE TABLE IF NOT EXISTS public.shirt_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     shirt_view_id UUID NOT NULL REFERENCES public.shirt_views(id) ON DELETE CASCADE,
-    zone_name VARCHAR(50) NOT NULL,
-    x NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (x >= 0),
-    y NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (y >= 0),
+    zone_name VARCHAR(100) NOT NULL,
+    zone_type VARCHAR(50) NOT NULL DEFAULT 'PERSONALIZADO',
+    x NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    y NUMERIC(10, 2) NOT NULL DEFAULT 0,
     width NUMERIC(10, 2) NOT NULL CHECK (width > 0),
     height NUMERIC(10, 2) NOT NULL CHECK (height > 0),
-    max_print_width_cm NUMERIC(6, 2) CHECK (max_print_width_cm > 0),
-    max_print_height_cm NUMERIC(6, 2) CHECK (max_print_height_cm > 0),
+    rotation NUMERIC(6, 2) NOT NULL DEFAULT 0,
+    min_scale NUMERIC(4, 2) NOT NULL DEFAULT 0.20,
+    max_scale NUMERIC(4, 2) NOT NULL DEFAULT 3.00,
+    allowed_element_types TEXT[] NOT NULL DEFAULT '{LOGO,TEXT,NUMBER,IMAGE}',
+    svg_path TEXT,
+    svg_bounds JSONB,
+    max_print_width_cm NUMERIC(6, 2),
+    max_print_height_cm NUMERIC(6, 2),
     allowed_print_methods print_method[] NOT NULL DEFAULT '{silkscreen,bordado,dtf,sublimacao}',
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
