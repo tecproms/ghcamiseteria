@@ -17,6 +17,7 @@ import {
   Plus,
   History,
   X,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,6 +123,28 @@ export default function MeusOrcamentosPage() {
       }
     } catch {
       alert("Erro ao comunicar com o servidor.");
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
+  // Transformar orçamento aprovado em pedido oficial
+  const handleConvertToOrder = async (quoteId: string) => {
+    setRespondingId(quoteId);
+    try {
+      const res = await fetch("/api/pedidos/from-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote_id: quoteId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || "Falha ao gerar pedido.");
+        return;
+      }
+      window.location.href = `/meus-pedidos?pedido=${data.order.order_number}`;
+    } catch {
+      alert("Erro ao comunicar com o servidor para gerar pedido.");
     } finally {
       setRespondingId(null);
     }
@@ -379,6 +402,23 @@ export default function MeusOrcamentosPage() {
                           Recusar
                         </Button>
                       </div>
+                    )}
+
+                    {/* Se o status for APPROVED: Cliente pode Avançar para Pedido Oficial */}
+                    {quote.status === "APPROVED" && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleConvertToOrder(quote.id)}
+                        disabled={respondingId === quote.id}
+                        className="w-full h-9 text-xs bg-[#d4af37] hover:bg-[#c59b27] text-zinc-950 font-bold gap-1.5 shadow-sm"
+                      >
+                        {respondingId === quote.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ShoppingCart className="h-3.5 w-3.5" />
+                        )}
+                        <span>Avançar para Pedido Oficial</span>
+                      </Button>
                     )}
 
                     {/* Botão para abrir detalhes completos */}
