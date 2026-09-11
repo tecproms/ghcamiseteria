@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Undo2,
   Redo2,
@@ -11,9 +12,14 @@ import {
   ShieldCheck,
   AlertTriangle,
   Loader2,
+  Save,
+  FolderOpen,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function EditorToolbar() {
   const {
@@ -27,8 +33,16 @@ export function EditorToolbar() {
     showZones,
     toggleShowZones,
     selectedModel,
+    selectedColor,
     selectedViewSide,
     elements,
+    currentProjectId,
+    setCurrentProjectId,
+    projectName,
+    setProjectName,
+    quantity,
+    setQuantity,
+    getSerializableConfig,
   } = useConfiguratorStore();
 
   const [isValidating, setIsValidating] = useState(false);
@@ -36,6 +50,10 @@ export function EditorToolbar() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Executar validação no backend
   const handleValidateOnBackend = async () => {
@@ -75,6 +93,69 @@ export function EditorToolbar() {
       });
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  // Salvar ou atualizar projeto no Meus Projetos
+  const handleSaveProject = async () => {
+    if (!selectedModel) return;
+    setIsSaving(true);
+    setSaveStatus(null);
+
+    const config = getSerializableConfig();
+
+    try {
+      const isUpdating = Boolean(currentProjectId);
+      const url = isUpdating ? `/api/meus-projetos/${currentProjectId}` : "/api/meus-projetos";
+      const method = isUpdating ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectName || "Meu Uniforme Personalizado",
+          shirt_model_id: selectedModel.id,
+          model_name: selectedModel.name,
+          color: config.color,
+          quantity,
+          views: elements,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 401) {
+        setSaveStatus({
+          type: "error",
+          text: "Você precisa fazer login para salvar seu projeto.",
+        });
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Falha ao salvar projeto.");
+      }
+
+      if (!isUpdating && data.project?.id) {
+        setCurrentProjectId(data.project.id);
+      }
+
+      setSaveStatus({
+        type: "success",
+        text: isUpdating
+          ? "Projeto atualizado com sucesso!"
+          : "Projeto salvo com sucesso no Meus Projetos!",
+      });
+
+      setTimeout(() => {
+        setIsSaveModalOpen(false);
+        setSaveStatus(null);
+      }, 1800);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar projeto";
+      setSaveStatus({ type: "error", text: msg });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -135,7 +216,7 @@ export function EditorToolbar() {
           </Button>
         </div>
 
-        {/* Visualização de Zonas e Validação */}
+        {/* Visualização de Zonas, Validação e Salvar Projeto */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -161,8 +242,32 @@ export function EditorToolbar() {
             ) : (
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             )}
-            <span>Validar Backend</span>
+            <span>Validar</span>
           </Button>
+
+          {/* Botão Salvar / Atualizar Projeto */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setIsSaveModalOpen(true)}
+            className="h-8 px-3 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold gap-1.5 shadow-sm"
+            title={currentProjectId ? "Atualizar montagem salva" : "Salvar montagem no Meus Projetos"}
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{currentProjectId ? "Salvar Alterações" : "Salvar Projeto"}</span>
+          </Button>
+
+          <Link href="/meus-projetos">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs text-slate-700 dark:text-zinc-300 gap-1.5 border-slate-300 dark:border-zinc-700"
+              title="Acessar lista de projetos salvos"
+            >
+              <FolderOpen className="h-3.5 w-3.5 text-[#d4af37]" />
+              <span className="hidden sm:inline">Projetos</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -189,6 +294,123 @@ export function EditorToolbar() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Modal de Salvar Projeto */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-[#d4af37]">
+                  <Save className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {currentProjectId ? "Atualizar Projeto" : "Salvar no Meus Projetos"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Salve sua montagem para acessar ou editar posteriormente.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsSaveModalOpen(false);
+                  setSaveStatus(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                  Nome do Projeto
+                </label>
+                <Input
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Ex: Uniforme Futebol GH 2026"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                  Quantidade pretendida de peças
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-lg text-xs space-y-1 text-slate-600 dark:text-zinc-400 border border-slate-200/60 dark:border-zinc-800/60">
+                <div className="flex justify-between">
+                  <span>Modelo:</span>
+                  <strong className="text-slate-900 dark:text-white">{selectedModel?.name}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cor da Peça:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border border-slate-300"
+                      style={{ backgroundColor: selectedColor?.hex || "#FFFFFF" }}
+                    />
+                    <strong className="text-slate-900 dark:text-white">{selectedColor?.name || "Padrão"}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {saveStatus && (
+                <div
+                  className={`p-2.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${
+                    saveStatus.type === "success"
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300"
+                      : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300"
+                  }`}
+                >
+                  {saveStatus.type === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+                  )}
+                  <span>{saveStatus.text}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsSaveModalOpen(false);
+                  setSaveStatus(null);
+                }}
+                className="h-8 px-3 text-xs"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={handleSaveProject}
+                disabled={isSaving}
+                className="h-8 px-4 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold gap-1.5"
+              >
+                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span>{isSaving ? "Salvando..." : currentProjectId ? "Atualizar" : "Salvar Projeto"}</span>
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -17,6 +17,7 @@ export function Navbar() {
     { href: "/", label: "Home" },
     { href: "/uniformes", label: "Uniformes" },
     { href: "/monte-seu-uniforme", label: "Monte seu uniforme" },
+    { href: "/meus-projetos", label: "Meus projetos" },
     { href: "/meus-pedidos", label: "Meus pedidos" },
   ];
 

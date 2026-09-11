@@ -1,5 +1,6 @@
+import React, { Suspense } from "react";
 import Link from "next/link";
-import { Sparkles, ArrowLeft } from "lucide-react";
+import { Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VisualConfigurator } from "@/components/configurator/visual-configurator";
 
@@ -29,7 +30,18 @@ export default function MonteSeuUniformePage() {
       </div>
 
       {/* Configurador Visual Konva */}
-      <VisualConfigurator />
+      <Suspense
+        fallback={
+          <div className="flex flex-col items-center justify-center p-20 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
+            <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
+              Iniciando configurador visual...
+            </p>
+          </div>
+        }
+      >
+        <VisualConfigurator />
+      </Suspense>
     </div>
   );
 }

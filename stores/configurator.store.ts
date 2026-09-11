@@ -1,10 +1,7 @@
 import { create } from "zustand";
-import type {
-  FabricColor,
-  CustomizerElement,
-  ViewSide,
-} from "@/types/configurator";
+import type { FabricColor, CustomizerElement, ViewSide } from "@/types/configurator";
 import type { UniformModel, CustomizationZone } from "@/types/uniform-model";
+import type { SerializableProjectConfig } from "@/types/projects";
 
 export const FABRIC_COLORS: FabricColor[] = [
   { id: "white", name: "Branco Neve", hex: "#FFFFFF", textColor: "#000000" },
@@ -59,6 +56,21 @@ interface ConfiguratorStore {
   canUndo: () => boolean;
   canRedo: () => boolean;
 
+  // Gestão de Projeto Salvo (Meus Projetos)
+  currentProjectId: string | null;
+  projectName: string;
+  quantity: number;
+  setCurrentProjectId: (id: string | null) => void;
+  setProjectName: (name: string) => void;
+  setQuantity: (quantity: number) => void;
+  loadProjectState: (
+    config: SerializableProjectConfig,
+    projectId?: string,
+    projectName?: string
+  ) => void;
+  getSerializableConfig: () => SerializableProjectConfig;
+  resetProject: () => void;
+
   // Helpers
   getActiveViewZones: () => CustomizationZone[];
   getSelectedElement: () => CustomizerElement | null;
@@ -82,6 +94,9 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   showZones: true,
   history: [initialElements],
   historyIndex: 0,
+  currentProjectId: null,
+  projectName: "Meu Uniforme Personalizado",
+  quantity: 10,
 
   setModels: (models) => {
     set({ models });
@@ -258,6 +273,62 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
 
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
+
+  setCurrentProjectId: (id) => set({ currentProjectId: id }),
+  setProjectName: (name) => set({ projectName: name }),
+  setQuantity: (quantity) => set({ quantity }),
+
+  loadProjectState: (config, projectId, projectName) => {
+    const { models } = get();
+    const matchedModel = models.find((m) => m.id === config.modelId) || null;
+
+    const restoredElements: Record<ViewSide, CustomizerElement[]> = {
+      FRONT: config.views?.FRONT || [],
+      BACK: config.views?.BACK || [],
+      LEFT_SLEEVE: config.views?.LEFT_SLEEVE || [],
+      RIGHT_SLEEVE: config.views?.RIGHT_SLEEVE || [],
+      OTHER: config.views?.OTHER || [],
+    };
+
+    set({
+      currentProjectId: projectId || null,
+      projectName: projectName || config.modelName || "Meu Uniforme Personalizado",
+      quantity: config.quantity || 10,
+      selectedModel: matchedModel || get().selectedModel,
+      selectedColor: config.color || FABRIC_COLORS[0],
+      selectedViewSide: "FRONT",
+      elements: restoredElements,
+      selectedElementId: null,
+      history: [restoredElements],
+      historyIndex: 0,
+    });
+  },
+
+  getSerializableConfig: () => {
+    const { selectedModel, selectedColor, quantity, elements } = get();
+    return {
+      version: 1,
+      modelId: selectedModel?.id || "",
+      modelName: selectedModel?.name || "Uniforme Personalizado",
+      productId: selectedModel?.product_id || null,
+      productName: selectedModel?.product_name || null,
+      color: selectedColor,
+      quantity,
+      views: elements,
+    };
+  },
+
+  resetProject: () => {
+    set({
+      currentProjectId: null,
+      projectName: "Meu Uniforme Personalizado",
+      quantity: 10,
+      elements: initialElements,
+      selectedElementId: null,
+      history: [initialElements],
+      historyIndex: 0,
+    });
+  },
 
   getActiveViewZones: () => {
     const { selectedModel, selectedViewSide } = get();
