@@ -31,6 +31,8 @@ export interface CustomizerElement {
   fill?: string;
   // Propriedades específicas de imagem / logo
   src?: string;
+  // Vínculo dinâmico com a Grade da Equipe (Nome ou Número)
+  linkedMemberField?: "name" | "number" | null;
 }
 
 export interface ValidationResult {

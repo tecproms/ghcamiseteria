@@ -15,6 +15,7 @@ import {
   LogIn,
   Shirt,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -218,6 +219,7 @@ export default function MeusProjetosPage() {
             const totalElements = Object.values(
               project.metadata?.configuration?.views || {}
             ).reduce((acc, curr) => acc + (curr?.length || 0), 0);
+            const teamRoster = project.metadata?.teamRoster || project.metadata?.configuration?.teamRoster;
 
             const isOperating = actionInProgressId === project.id;
 
@@ -256,6 +258,14 @@ export default function MeusProjetosPage() {
                     <span>{colorName}</span>
                   </div>
 
+                  {/* Badge de Grade da Equipe */}
+                  {teamRoster?.enabled && (teamRoster.members?.length || 0) > 0 && (
+                    <div className="absolute top-10 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#d4af37] text-zinc-950 font-bold text-[10px] shadow-xs">
+                      <Users className="h-3 w-3" />
+                      <span>{teamRoster.members.length} integrantes</span>
+                    </div>
+                  )}
+
                   {/* Badge de Status */}
                   <div className="absolute top-3 right-3">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
@@ -288,7 +298,14 @@ export default function MeusProjetosPage() {
                       <span>{updatedDate}</span>
                     </div>
                     <div>
-                      <span>Qtd: <strong>{quantity} un.</strong></span>
+                      <span>
+                        Qtd: <strong>{quantity} un.</strong>
+                        {teamRoster?.enabled && (teamRoster.members?.length || 0) > 0 && (
+                          <span className="ml-1 text-[10px] text-[#d4af37] font-semibold">
+                            (Grade)
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
 

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { FabricColor, CustomizerElement, ViewSide } from "@/types/configurator";
 import type { UniformModel, CustomizationZone } from "@/types/uniform-model";
 import type { SerializableProjectConfig } from "@/types/projects";
+import type { TeamRoster, TeamMemberItem, TeamRosterSummary } from "@/types/team";
 
 export const FABRIC_COLORS: FabricColor[] = [
   { id: "white", name: "Branco Neve", hex: "#FFFFFF", textColor: "#000000" },
@@ -71,6 +72,20 @@ interface ConfiguratorStore {
   getSerializableConfig: () => SerializableProjectConfig;
   resetProject: () => void;
 
+  // Gestão de Equipe & Grade do Pedido
+  teamRoster: TeamRoster;
+  previewMemberId: string | null;
+  addTeamMember: (member: Omit<TeamMemberItem, "id">) => TeamMemberItem;
+  updateTeamMember: (id: string, updates: Partial<TeamMemberItem>) => void;
+  removeTeamMember: (id: string) => void;
+  duplicateTeamMember: (id: string) => TeamMemberItem | null;
+  importTeamMembers: (rawText: string) => { added: number; errors: string[] };
+  clearTeamRoster: () => void;
+  setTeamRosterEnabled: (enabled: boolean) => void;
+  getTeamRosterSummary: () => TeamRosterSummary;
+  setPreviewMemberId: (id: string | null) => void;
+  getActivePreviewMember: () => TeamMemberItem | null;
+
   // Helpers
   getActiveViewZones: () => CustomizationZone[];
   getSelectedElement: () => CustomizerElement | null;
@@ -97,6 +112,11 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   currentProjectId: null,
   projectName: "Meu Uniforme Personalizado",
   quantity: 10,
+  teamRoster: {
+    enabled: false,
+    members: [],
+  },
+  previewMemberId: null,
 
   setModels: (models) => {
     set({ models });
@@ -290,22 +310,32 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       OTHER: config.views?.OTHER || [],
     };
 
+    const restoredRoster = config.teamRoster || {
+      enabled: false,
+      members: [],
+    };
+
     set({
       currentProjectId: projectId || null,
       projectName: projectName || config.modelName || "Meu Uniforme Personalizado",
-      quantity: config.quantity || 10,
+      quantity:
+        restoredRoster.enabled && restoredRoster.members.length > 0
+          ? restoredRoster.members.length
+          : config.quantity || 10,
       selectedModel: matchedModel || get().selectedModel,
       selectedColor: config.color || FABRIC_COLORS[0],
       selectedViewSide: "FRONT",
       elements: restoredElements,
       selectedElementId: null,
+      teamRoster: restoredRoster,
+      previewMemberId: null,
       history: [restoredElements],
       historyIndex: 0,
     });
   },
 
   getSerializableConfig: () => {
-    const { selectedModel, selectedColor, quantity, elements } = get();
+    const { selectedModel, selectedColor, quantity, elements, teamRoster } = get();
     return {
       version: 1,
       modelId: selectedModel?.id || "",
@@ -315,6 +345,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       color: selectedColor,
       quantity,
       views: elements,
+      teamRoster,
     };
   },
 
@@ -325,9 +356,180 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       quantity: 10,
       elements: initialElements,
       selectedElementId: null,
+      teamRoster: { enabled: false, members: [] },
+      previewMemberId: null,
       history: [initialElements],
       historyIndex: 0,
     });
+  },
+
+  addTeamMember: (memberData) => {
+    const id = `member-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const newMember: TeamMemberItem = {
+      ...memberData,
+      id,
+      name: memberData.name.trim(),
+      size: (memberData.size || "M").trim().toUpperCase(),
+    };
+    const currentRoster = get().teamRoster;
+    const newMembers = [...currentRoster.members, newMember];
+    set({
+      teamRoster: {
+        enabled: true,
+        members: newMembers,
+      },
+      quantity: newMembers.length,
+    });
+    return newMember;
+  },
+
+  updateTeamMember: (id, updates) => {
+    const { teamRoster } = get();
+    const idx = teamRoster.members.findIndex((m) => m.id === id);
+    if (idx === -1) return;
+    const updated = [...teamRoster.members];
+    updated[idx] = {
+      ...updated[idx],
+      ...updates,
+      ...(updates.size ? { size: updates.size.trim().toUpperCase() } : {}),
+      ...(updates.name ? { name: updates.name.trim() } : {}),
+    };
+    set({
+      teamRoster: {
+        ...teamRoster,
+        members: updated,
+      },
+    });
+  },
+
+  removeTeamMember: (id) => {
+    const { teamRoster, previewMemberId } = get();
+    const newMembers = teamRoster.members.filter((m) => m.id !== id);
+    set({
+      teamRoster: {
+        ...teamRoster,
+        members: newMembers,
+        enabled: newMembers.length > 0,
+      },
+      quantity: Math.max(1, newMembers.length),
+      previewMemberId: previewMemberId === id ? null : previewMemberId,
+    });
+  },
+
+  duplicateTeamMember: (id) => {
+    const { teamRoster } = get();
+    const member = teamRoster.members.find((m) => m.id === id);
+    if (!member) return null;
+    const newId = `member-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const duplicated: TeamMemberItem = {
+      ...member,
+      id: newId,
+      name: `${member.name} (2)`,
+    };
+    const newMembers = [...teamRoster.members, duplicated];
+    set({
+      teamRoster: {
+        ...teamRoster,
+        members: newMembers,
+      },
+      quantity: newMembers.length,
+    });
+    return duplicated;
+  },
+
+  importTeamMembers: (rawText: string) => {
+    const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const newMembers: TeamMemberItem[] = [];
+    const errors: string[] = [];
+
+    lines.forEach((line, index) => {
+      let parts: string[] = [];
+      if (line.includes("|")) {
+        parts = line.split("|").map((p) => p.trim());
+      } else if (line.includes(";")) {
+        parts = line.split(";").map((p) => p.trim());
+      } else if (line.includes("\t")) {
+        parts = line.split("\t").map((p) => p.trim());
+      } else if (line.includes(",")) {
+        parts = line.split(",").map((p) => p.trim());
+      } else {
+        parts = line.trim().split(/\s+/);
+      }
+
+      const name = parts[0];
+      const size = (parts[1] || "M").toUpperCase();
+      const number = parts[2] || undefined;
+      const sector = parts[3] || undefined;
+      const notes = parts[4] || undefined;
+
+      if (!name) {
+        errors.push(`Linha ${index + 1}: Nome do integrante ausente.`);
+        return;
+      }
+
+      newMembers.push({
+        id: `member-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 5)}`,
+        name,
+        size,
+        number,
+        sector,
+        notes,
+      });
+    });
+
+    if (newMembers.length > 0) {
+      const current = get().teamRoster.members;
+      const allMembers = [...current, ...newMembers];
+      set({
+        teamRoster: {
+          enabled: true,
+          members: allMembers,
+        },
+        quantity: allMembers.length,
+      });
+    }
+
+    return { added: newMembers.length, errors };
+  },
+
+  clearTeamRoster: () => {
+    set({
+      teamRoster: {
+        enabled: false,
+        members: [],
+      },
+      previewMemberId: null,
+    });
+  },
+
+  setTeamRosterEnabled: (enabled: boolean) => {
+    set((state) => ({
+      teamRoster: {
+        ...state.teamRoster,
+        enabled,
+      },
+    }));
+  },
+
+  getTeamRosterSummary: () => {
+    const { teamRoster } = get();
+    const sizeBreakdown: Record<string, number> = {};
+    teamRoster.members.forEach((m) => {
+      const s = (m.size || "M").toUpperCase();
+      sizeBreakdown[s] = (sizeBreakdown[s] || 0) + 1;
+    });
+    return {
+      sizeBreakdown,
+      totalMembers: teamRoster.members.length,
+    };
+  },
+
+  setPreviewMemberId: (id) => set({ previewMemberId: id }),
+
+  getActivePreviewMember: () => {
+    const { teamRoster, previewMemberId } = get();
+    if (!previewMemberId) return null;
+    return teamRoster.members.find((m) => m.id === previewMemberId) || null;
   },
 
   getActiveViewZones: () => {

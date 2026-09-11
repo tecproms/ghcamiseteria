@@ -24,6 +24,10 @@ export class ProjectsService {
     const id = `proj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
 
+    const effectiveQuantity = dto.teamRoster?.enabled
+      ? dto.teamRoster.members.length
+      : (dto.quantity || 10);
+
     const configuration: SerializableProjectConfig = {
       version: 1,
       modelId: dto.shirt_model_id,
@@ -31,8 +35,9 @@ export class ProjectsService {
       productId: dto.product_id || null,
       productName: dto.product_name || null,
       color: dto.color,
-      quantity: dto.quantity || 10,
+      quantity: effectiveQuantity,
       views: dto.views,
+      teamRoster: dto.teamRoster,
     };
 
     const newProject: UniformProject = {
@@ -45,11 +50,12 @@ export class ProjectsService {
       preview_thumbnail_url: dto.preview_thumbnail_url || null,
       metadata: {
         color: dto.color,
-        quantity: dto.quantity || 10,
+        quantity: effectiveQuantity,
         productId: dto.product_id || null,
         productName: dto.product_name || null,
         modelName: dto.model_name || "Modelo Personalizado",
         configuration,
+        teamRoster: dto.teamRoster,
       },
       created_at: now,
       updated_at: now,
@@ -215,6 +221,14 @@ export class ProjectsService {
     if (dto.views) {
       updatedMetadata.configuration.views = dto.views;
     }
+    if (dto.teamRoster !== undefined) {
+      updatedMetadata.teamRoster = dto.teamRoster;
+      updatedMetadata.configuration.teamRoster = dto.teamRoster;
+      if (dto.teamRoster?.enabled) {
+        updatedMetadata.quantity = dto.teamRoster.members.length;
+        updatedMetadata.configuration.quantity = dto.teamRoster.members.length;
+      }
+    }
 
     const updatedProject: UniformProject = {
       ...existing,
@@ -271,6 +285,7 @@ export class ProjectsService {
       quantity: existing.metadata.quantity,
       views: existing.metadata.configuration.views,
       preview_thumbnail_url: existing.preview_thumbnail_url,
+      teamRoster: existing.metadata.teamRoster || existing.metadata.configuration?.teamRoster,
     };
 
     return this.createProject(userId, duplicateDto);

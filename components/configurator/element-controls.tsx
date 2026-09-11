@@ -12,6 +12,8 @@ import {
   Sliders,
   Check,
   AlertCircle,
+  Users,
+  Link2,
 } from "lucide-react";
 import {
   useConfiguratorStore,
@@ -20,6 +22,7 @@ import {
 } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TeamRosterManager } from "@/components/configurator/team-roster-manager";
 import type { ViewSide } from "@/types/configurator";
 
 const VIEW_TABS: { side: ViewSide; label: string }[] = [
@@ -56,9 +59,10 @@ export function ElementControls() {
     updateElement,
     deleteElement,
     duplicateElement,
+    teamRoster,
   } = useConfiguratorStore();
 
-  const [activeTab, setActiveTab] = useState<"add" | "properties" | "model">("add");
+  const [activeTab, setActiveTab] = useState<"add" | "properties" | "model" | "team">("add");
   const [selectedTargetZoneId, setSelectedTargetZoneId] = useState<string>("");
   const [newText, setNewText] = useState("SUA MARCA");
   const [newNumber, setNewNumber] = useState("10");
@@ -243,14 +247,31 @@ export function ElementControls() {
 
         <button
           onClick={() => setActiveTab("model")}
-          className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
             activeTab === "model"
               ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-[#d4af37] shadow-sm"
               : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <Layers className="h-3.5 w-3.5" />
-          Modelo & Cores
+          Modelo
+        </button>
+
+        <button
+          onClick={() => setActiveTab("team")}
+          className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === "team"
+              ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-[#d4af37] shadow-sm"
+              : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Users className="h-3.5 w-3.5" />
+          <span>Equipe</span>
+          {teamRoster.members.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-[#d4af37]/20 text-[#d4af37] text-[10px] font-bold">
+              {teamRoster.members.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -456,6 +477,30 @@ export function ElementControls() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Vínculo Dinâmico com a Grade da Equipe */}
+                    <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <Link2 className="h-3.5 w-3.5 text-[#d4af37]" />
+                        Vínculo com a Grade da Equipe
+                      </label>
+                      <select
+                        value={selectedElement.linkedMemberField || ""}
+                        onChange={(e) =>
+                          updateElement(selectedElement.id, {
+                            linkedMemberField: (e.target.value as "name" | "number") || null,
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2 text-xs"
+                      >
+                        <option value="">Fixo (Sem vínculo automático)</option>
+                        <option value="name">Vincular ao Nome do Integrante</option>
+                        <option value="number">Vincular ao Número do Integrante</option>
+                      </select>
+                      <p className="text-[10px] text-slate-400">
+                        Quando vinculado, o texto deste elemento mudará dinamicamente ao selecionar integrantes na grade.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -571,6 +616,9 @@ export function ElementControls() {
             </div>
           </div>
         )}
+
+        {/* ================= ABA 4: GERENCIADOR DE GRADE DA EQUIPE ================= */}
+        {activeTab === "team" && <TeamRosterManager />}
       </div>
 
       {/* Seletor de Vistas Inferior (Frente, Costas, Mangas) */}

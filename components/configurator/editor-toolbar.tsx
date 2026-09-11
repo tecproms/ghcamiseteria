@@ -16,6 +16,7 @@ import {
   FolderOpen,
   CheckCircle2,
   X,
+  Users,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export function EditorToolbar() {
     quantity,
     setQuantity,
     getSerializableConfig,
+    teamRoster,
   } = useConfiguratorStore();
 
   const [isValidating, setIsValidating] = useState(false);
@@ -117,8 +119,9 @@ export function EditorToolbar() {
           shirt_model_id: selectedModel.id,
           model_name: selectedModel.name,
           color: config.color,
-          quantity,
+          quantity: config.teamRoster?.enabled ? config.teamRoster.members.length : quantity,
           views: elements,
+          teamRoster: config.teamRoster,
         }),
       });
 
@@ -268,6 +271,16 @@ export function EditorToolbar() {
               <span className="hidden sm:inline">Projetos</span>
             </Button>
           </Link>
+
+          {teamRoster.enabled && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-md bg-[#d4af37]/15 border border-[#d4af37]/40 text-xs font-semibold text-slate-900 dark:text-[#d4af37]"
+              title={`Grade de Equipe ativa com ${teamRoster.members.length} integrantes`}
+            >
+              <Users className="h-3.5 w-3.5 text-[#d4af37]" />
+              <span>Equipe ({teamRoster.members.length})</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -342,13 +355,19 @@ export function EditorToolbar() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
                   Quantidade pretendida de peças
+                  {teamRoster.enabled && (
+                    <span className="ml-1 text-[11px] text-[#d4af37] font-normal">
+                      (sincronizada com a Grade da Equipe)
+                    </span>
+                  )}
                 </label>
                 <Input
                   type="number"
                   min={1}
-                  value={quantity}
+                  disabled={teamRoster.enabled}
+                  value={teamRoster.enabled ? teamRoster.members.length : quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="h-9 text-xs"
+                  className="h-9 text-xs disabled:opacity-80 disabled:bg-slate-100 dark:disabled:bg-zinc-800"
                 />
               </div>
 

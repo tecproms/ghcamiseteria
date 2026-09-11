@@ -2,6 +2,7 @@
 // GH Camiseteria & Uniformes Personalizados
 
 import type { FabricColor, CustomizerElement, ViewSide } from "@/types/configurator";
+import type { TeamRoster } from "@/types/team";
 
 export type ProjectStatus = "draft" | "saved" | "in_review" | "approved" | "rejected" | "archived";
 
@@ -17,6 +18,7 @@ export interface SerializableProjectConfig {
   color: FabricColor;
   quantity: number;
   views: Record<ViewSide, CustomizerElement[]>;
+  teamRoster?: TeamRoster;
 }
 
 /**
@@ -37,6 +39,7 @@ export interface UniformProject {
     productName?: string | null;
     modelName: string;
     configuration: SerializableProjectConfig;
+    teamRoster?: TeamRoster;
   };
   created_at: string;
   updated_at: string;
@@ -53,6 +56,7 @@ export interface CreateProjectDTO {
   color: FabricColor;
   quantity?: number;
   views: Record<ViewSide, CustomizerElement[]>;
+  teamRoster?: TeamRoster;
   preview_thumbnail_url?: string | null;
 }
 
@@ -62,5 +66,6 @@ export interface UpdateProjectDTO {
   color?: FabricColor;
   quantity?: number;
   views?: Record<ViewSide, CustomizerElement[]>;
+  teamRoster?: TeamRoster;
   preview_thumbnail_url?: string | null;
 }

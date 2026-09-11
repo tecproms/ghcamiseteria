@@ -72,6 +72,7 @@ export async function POST(req: Request) {
       quantity: body.quantity || 10,
       views: body.views,
       preview_thumbnail_url: body.preview_thumbnail_url,
+      teamRoster: body.teamRoster,
     });
 
     return NextResponse.json({ success: true, project }, { status: 201 });

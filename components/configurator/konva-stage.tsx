@@ -87,14 +87,15 @@ function CanvasImageItem({
   );
 }
 
-// Componente para renderizar Textos e Números no Konva
 function CanvasTextItem({
   element,
+  displayText,
   zone,
   onSelect,
   onChange,
 }: {
   element: CustomizerElement;
+  displayText?: string;
   zone?: CustomizationZone;
   onSelect: () => void;
   onChange: (newAttrs: Partial<CustomizerElement>) => void;
@@ -123,7 +124,7 @@ function CanvasTextItem({
     <KonvaText
       ref={textRef}
       id={element.id}
-      text={element.text || "TEXTO"}
+      text={displayText !== undefined ? displayText : element.text || "TEXTO"}
       fontSize={element.fontSize || 36}
       fontFamily={element.fontFamily || "Impact"}
       fill={element.fill || "#FFFFFF"}
@@ -179,6 +180,8 @@ export function KonvaConfiguratorStage() {
     selectElement,
     updateElement,
     getActiveViewZones,
+    teamRoster,
+    getActivePreviewMember,
   } = useConfiguratorStore();
 
   const currentElements = useMemo(
@@ -225,6 +228,32 @@ export function KonvaConfiguratorStage() {
   // Obter zona ativa do elemento selecionado para limitar escala min/max
   const selectedElement = currentElements.find((el) => el.id === selectedElementId);
   const selectedElementZone = currentZones.find((z) => z.id === selectedElement?.zoneId);
+
+  // Integrante ativo para pré-visualização no uniforme
+  const activePreviewMember = getActivePreviewMember();
+
+  const getDisplayText = (elem: CustomizerElement) => {
+    if (teamRoster.enabled && activePreviewMember) {
+      if (elem.linkedMemberField === "name") {
+        return activePreviewMember.name;
+      }
+      if (elem.linkedMemberField === "number") {
+        return activePreviewMember.number || elem.text || "10";
+      }
+      if (elem.type === "NUMBER" && activePreviewMember.number) {
+        return activePreviewMember.number;
+      }
+      if (
+        elem.type === "TEXT" &&
+        (elem.text?.toUpperCase() === "NOME" ||
+          elem.text?.toLowerCase() === "{nome}" ||
+          elem.text?.toUpperCase() === "NOME DO INTEGRANTE")
+      ) {
+        return activePreviewMember.name;
+      }
+    }
+    return elem.text || (elem.type === "NUMBER" ? "10" : "TEXTO");
+  };
 
   // Template SVG para a vista ativa
   const svgTemplate =
@@ -339,6 +368,7 @@ export function KonvaConfiguratorStage() {
               <CanvasTextItem
                 key={elem.id}
                 element={elem}
+                displayText={getDisplayText(elem)}
                 zone={zone}
                 onSelect={() => selectElement(elem.id)}
                 onChange={(updates) => updateElement(elem.id, updates)}
