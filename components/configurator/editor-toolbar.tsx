@@ -20,15 +20,25 @@ import {
   Coins,
   FileText,
   Send,
+  Camera,
+  Download,
+  Share2,
+  Sparkles,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/stores/configurator.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PricingCalculationResult } from "@/types/pricing";
 import { useAuth } from "@/hooks/use-auth";
+import { getGarmentType } from "@/lib/svg-templates";
+import { generateViewSVG, convertSvgToPngDataUrl, triggerFileDownload } from "@/lib/production-export";
+import type { ViewSide } from "@/types/uniform-model";
+import type { OrderSnapshot } from "@/types/orders";
 
 export function EditorToolbar() {
   const {
+    models,
+    selectModel,
     canUndo,
     canRedo,
     undo,
@@ -58,6 +68,12 @@ export function EditorToolbar() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  // Estados da Foto de Estúdio / Catálogo Fotográfico
+  const [isStudioModalOpen, setIsStudioModalOpen] = useState(false);
+  const [isGeneratingStudio, setIsGeneratingStudio] = useState(false);
+  const [studioImage, setStudioImage] = useState<string | null>(null);
+  const [studioActiveView, setStudioActiveView] = useState<ViewSide>("FRONT");
 
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -282,8 +298,115 @@ export function EditorToolbar() {
     }
   };
 
+  // Abertura e Renderização de Foto de Estúdio Fotográfico
+  const handleOpenStudio = async (viewSideToRender: ViewSide = selectedViewSide) => {
+    setIsStudioModalOpen(true);
+    setIsGeneratingStudio(true);
+    setStudioActiveView(viewSideToRender);
+
+    try {
+      // Se a vista for a mesma exibida no Canvas Konva, tenta captura direta ultra HD
+      const konvaExport = (
+        window as unknown as { __konva_export_studio__?: () => string | null }
+      ).__konva_export_studio__;
+
+      if (viewSideToRender === selectedViewSide && typeof konvaExport === "function") {
+        const url = konvaExport();
+        if (url) {
+          setStudioImage(url);
+          setIsGeneratingStudio(false);
+          return;
+        }
+      }
+
+      // Renderização SVG -> PNG ultra nítida de qualquer vista (1800x1800)
+      const config = getSerializableConfig();
+      const snapshot: OrderSnapshot = {
+        version: 1,
+        shirt_model_id: selectedModel?.id || "model-1",
+        model_name: selectedModel?.name || "Camiseta",
+        color: {
+          id: config.color.id,
+          name: config.color.name,
+          hex: config.color.hex,
+        },
+        quantity: quantity,
+        size_breakdown: {},
+        views: elements,
+        team_roster: teamRoster.enabled ? teamRoster : null,
+        pricing_summary: {
+          unit_price: pricingResult?.unitPrice || 0,
+          discount_amount: pricingResult?.totalDiscount || 0,
+          final_total: pricingResult?.total || 0,
+        },
+        approved_at: new Date().toISOString(),
+      };
+
+      const svgString = generateViewSVG(viewSideToRender, snapshot, 1200, 1200);
+      const pngUrl = await convertSvgToPngDataUrl(svgString, 1800, 1800);
+      setStudioImage(pngUrl);
+    } catch (err) {
+      console.error("Erro ao gerar foto de estúdio:", err);
+    } finally {
+      setIsGeneratingStudio(false);
+    }
+  };
+
+  const handleDownloadStudioImage = () => {
+    if (!studioImage) return;
+    const cleanModel = (selectedModel?.name || "UNIFORME").replace(/[^a-zA-Z0-9]/g, "_");
+    triggerFileDownload(studioImage, `CATALOGO_GH_${cleanModel}_${studioActiveView}.png`);
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(
+      `Olá! Montei meu uniforme na GH Camiseteria (*${selectedModel?.name || "Uniforme"}* na cor *${selectedColor?.name || "Personalizada"}*) e gostaria de solicitar um orçamento para ${quantity} peças!`
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
   return (
     <div className="space-y-2">
+      {/* Seletor Rápido de Modelo / Corte & Botão Foto de Estúdio */}
+      {models.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider px-1">
+              Modelo / Corte:
+            </span>
+            {models.map((m) => {
+              const isSelected = selectedModel?.id === m.id;
+              const gType = getGarmentType(m.name || m.id);
+              const icon = gType === "POLO" ? "👔" : gType === "MANGA_LONGA" ? "🧥" : "👕";
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => selectModel(m)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isSelected
+                      ? "bg-slate-900 text-white dark:bg-[#d4af37] dark:text-zinc-950 shadow-sm ring-2 ring-[#d4af37]/40"
+                      : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:border-[#d4af37]/50"
+                  }`}
+                  title={`Selecionar corte: ${m.name}`}
+                >
+                  <span>{icon}</span>
+                  <span className="truncate max-w-[150px] sm:max-w-[210px]">{m.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <Button
+            size="sm"
+            onClick={() => handleOpenStudio(selectedViewSide)}
+            className="h-8 px-3.5 text-xs bg-gradient-to-r from-amber-500 via-[#d4af37] to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 font-bold gap-1.5 shadow-sm ml-auto"
+            title="Gerar foto de catálogo profissional em alta definição com iluminação de estúdio"
+          >
+            <Camera className="h-3.5 w-3.5 text-zinc-950" />
+            <span>Foto de Estúdio</span>
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm">
         {/* Histórico: Desfazer e Refazer */}
         <div className="flex items-center gap-1">
@@ -910,6 +1033,159 @@ export function EditorToolbar() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Foto de Estúdio & Apresentação de Catálogo */}
+      {isStudioModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-5 sm:p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-400 to-[#d4af37] flex items-center justify-center text-zinc-950 shadow-md">
+                  <Camera className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Foto de Estúdio & Catálogo
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/30">
+                      Alta Resolução
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Apresentação fotográfica de estúdio do seu uniforme personalizado.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsStudioModalOpen(false);
+                  setStudioImage(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Alternador de Vistas dentro do Modal de Estúdio */}
+            <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 dark:text-zinc-400 font-medium">Vista:</span>
+                {(["FRONT", "BACK", "LEFT_SLEEVE", "RIGHT_SLEEVE"] as ViewSide[]).map((side) => {
+                  const labels: Record<ViewSide, string> = {
+                    FRONT: "Frente",
+                    BACK: "Costas",
+                    LEFT_SLEEVE: "Manga Esq.",
+                    RIGHT_SLEEVE: "Manga Dir.",
+                    OTHER: "Outro",
+                  };
+                  const isCur = studioActiveView === side;
+                  return (
+                    <button
+                      key={side}
+                      disabled={isGeneratingStudio}
+                      onClick={() => handleOpenStudio(side)}
+                      className={`px-2.5 py-1 rounded-md font-semibold text-xs transition-all ${
+                        isCur
+                          ? "bg-slate-900 text-white dark:bg-[#d4af37] dark:text-zinc-950"
+                          : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      {labels[side]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                <Sparkles className="h-3.5 w-3.5 text-[#d4af37]" />
+                <span>Textura e caimento realistas</span>
+              </div>
+            </div>
+
+            {/* Card de Apresentação de Estúdio Fotográfico */}
+            <div className="relative rounded-2xl bg-gradient-to-b from-zinc-900 via-zinc-950 to-black border border-zinc-800 p-6 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[400px] overflow-hidden shadow-inner">
+              {/* Iluminação Spot de Fundo */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08)_0%,transparent_70%)] pointer-events-none" />
+
+              {/* Marca d'água de Grife */}
+              <div className="absolute top-3 left-4 flex items-center gap-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest pointer-events-none">
+                <Sparkles className="h-3 w-3 text-[#d4af37]" />
+                GH Camiseteria • Estúdio Virtual
+              </div>
+
+              {isGeneratingStudio ? (
+                <div className="flex flex-col items-center gap-3 py-16">
+                  <Loader2 className="h-10 w-10 animate-spin text-[#d4af37]" />
+                  <p className="text-xs text-zinc-400 font-medium">
+                    Renderizando foto de estúdio em alta resolução...
+                  </p>
+                </div>
+              ) : studioImage ? (
+                <div className="relative flex items-center justify-center w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={studioImage}
+                    alt="Uniforme GH Camiseteria Estúdio"
+                    className="max-h-[360px] max-w-full object-contain drop-shadow-[0_20px_25px_rgba(0,0,0,0.6)]"
+                  />
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500 py-16">Nenhuma imagem gerada.</div>
+              )}
+
+              {/* Tag de especificações no rodapé da foto */}
+              <div className="absolute bottom-3 right-4 flex items-center gap-2 text-[10px] text-zinc-400 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-md border border-zinc-800">
+                <span>{selectedModel?.name}</span>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-zinc-700"
+                    style={{ backgroundColor: selectedColor?.hex }}
+                  />
+                  <span>{selectedColor?.name}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações de Download e Compartilhamento */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsStudioModalOpen(false);
+                  setStudioImage(null);
+                }}
+                className="h-9 px-3 text-xs"
+              >
+                Fechar
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShareWhatsApp}
+                  className="h-9 px-3.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 gap-1.5 font-semibold"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span>WhatsApp</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={handleDownloadStudioImage}
+                  disabled={!studioImage || isGeneratingStudio}
+                  className="h-9 px-4 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-bold gap-1.5 shadow-sm"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Baixar Foto em Alta Resolução (PNG)</span>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

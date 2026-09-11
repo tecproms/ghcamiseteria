@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { Stage, Layer, Rect, Text as KonvaText, Group, Transformer, Path, Image as KonvaImage } from "react-konva";
+import { Stage, Layer, Rect, Circle, Text as KonvaText, Group, Transformer, Path, Image as KonvaImage } from "react-konva";
 import type Konva from "konva";
 import { useConfiguratorStore } from "@/stores/configurator.store";
-import { SHIRT_SVG_TEMPLATES } from "@/lib/svg-templates";
+import { getGarmentType, getGarmentTemplate } from "@/lib/svg-templates";
 import type { CustomizerElement } from "@/types/configurator";
 import type { CustomizationZone } from "@/types/uniform-model";
 
@@ -172,6 +172,7 @@ export function KonvaConfiguratorStage() {
   const baseSize = 800;
 
   const {
+    selectedModel,
     selectedColor,
     selectedViewSide,
     elements,
@@ -225,6 +226,28 @@ export function KonvaConfiguratorStage() {
     }
   }, [selectedElementId, currentElements, selectedViewSide]);
 
+  // Expor captura de foto de estúdio em altíssima definição (2000px+)
+  useEffect(() => {
+    function exportKonvaStage(): string | null {
+      if (!stageRef.current) return null;
+      try {
+        if (transformerRef.current) {
+          transformerRef.current.nodes([]);
+          transformerRef.current.getLayer()?.batchDraw();
+        }
+        return stageRef.current.toDataURL({ pixelRatio: 2.5, mimeType: "image/png" });
+      } catch (err) {
+        console.error("Erro ao exportar foto de estúdio Konva:", err);
+        return null;
+      }
+    }
+
+    (window as unknown as { __konva_export_studio__?: () => string | null }).__konva_export_studio__ = exportKonvaStage;
+    return () => {
+      delete (window as unknown as { __konva_export_studio__?: () => string | null }).__konva_export_studio__;
+    };
+  }, []);
+
   // Obter zona ativa do elemento selecionado para limitar escala min/max
   const selectedElement = currentElements.find((el) => el.id === selectedElementId);
   const selectedElementZone = currentZones.find((z) => z.id === selectedElement?.zoneId);
@@ -255,10 +278,9 @@ export function KonvaConfiguratorStage() {
     return elem.text || (elem.type === "NUMBER" ? "10" : "TEXTO");
   };
 
-  // Template SVG para a vista ativa
-  const svgTemplate =
-    (SHIRT_SVG_TEMPLATES as Record<string, { path: string; collarPath: string }>)[selectedViewSide] ||
-    SHIRT_SVG_TEMPLATES.FRONT;
+  // Template visual dinâmico de acordo com o modelo selecionado (Polo, Manga Longa ou Tradicional)
+  const garmentType = getGarmentType(selectedModel?.name || selectedModel?.id);
+  const garmentTemplate = getGarmentTemplate(garmentType, selectedViewSide);
 
   return (
     <div
@@ -286,31 +308,107 @@ export function KonvaConfiguratorStage() {
           }
         }}
       >
-        {/* Camada 1: Silhueta da Camiseta com a cor do tecido selecionada */}
+        {/* Camada 1: Silhueta da Peça com Profundidade Fotográfica, Sombras 3D e Acabamentos Reais */}
         <Layer>
           <Group>
-            {/* Sombra da peça */}
+            {/* 1. Sombra suave projetada no piso de estúdio */}
             <Path
-              data={svgTemplate.path}
-              fill="rgba(0,0,0,0.08)"
-              offsetX={-4}
-              offsetY={-6}
+              data={garmentTemplate.path}
+              fill="rgba(0,0,0,0.12)"
+              offsetX={-6}
+              offsetY={-10}
             />
-            {/* Peça principal */}
+
+            {/* 2. Tecido Base (Tingimento instantâneo com a cor do cliente) */}
             <Path
-              data={svgTemplate.path}
+              data={garmentTemplate.path}
               fill={selectedColor.hex}
-              stroke={selectedColor.hex === "#FFFFFF" ? "#E2E8F0" : "#27272A"}
-              strokeWidth={3}
+              stroke={selectedColor.hex === "#FFFFFF" ? "#CBD5E1" : "rgba(0,0,0,0.35)"}
+              strokeWidth={2.5}
               lineJoin="round"
             />
-            {/* Detalhe da gola / recortes */}
-            <Path
-              data={svgTemplate.collarPath}
-              fill={selectedColor.hex === "#FFFFFF" ? "#F1F5F9" : "rgba(0,0,0,0.15)"}
-              stroke={selectedColor.hex === "#FFFFFF" ? "#CBD5E1" : "rgba(255,255,255,0.15)"}
-              strokeWidth={2}
-            />
+
+            {/* 3. Sombras Anatômicas de Dobras Naturais e Caimento */}
+            {garmentTemplate.shadowPath && (
+              <Path
+                data={garmentTemplate.shadowPath}
+                stroke={selectedColor.hex === "#FFFFFF" ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.26)"}
+                strokeWidth={3}
+                lineCap="round"
+                lineJoin="round"
+              />
+            )}
+
+            {/* 4. Costuras Pespontadas Duplas de Confecção */}
+            {garmentTemplate.stitchesPath && (
+              <Path
+                data={garmentTemplate.stitchesPath}
+                stroke={selectedColor.hex === "#FFFFFF" ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.20)"}
+                strokeWidth={1.5}
+                dash={[5, 3]}
+              />
+            )}
+
+            {/* 5. Acabamentos de Ribana (Mangas e Punhos Longos) */}
+            {garmentTemplate.cuffsPath && (
+              <Path
+                data={garmentTemplate.cuffsPath}
+                fill={selectedColor.hex === "#FFFFFF" ? "#F1F5F9" : "rgba(0,0,0,0.14)"}
+                stroke={selectedColor.hex === "#FFFFFF" ? "#94A3B8" : "rgba(255,255,255,0.18)"}
+                strokeWidth={1.5}
+              />
+            )}
+
+            {/* 6. Peitilho da Camisa Polo */}
+            {garmentTemplate.placketPath && (
+              <Path
+                data={garmentTemplate.placketPath}
+                fill={selectedColor.hex === "#FFFFFF" ? "#F8FAFC" : "rgba(0,0,0,0.12)"}
+                stroke={selectedColor.hex === "#FFFFFF" ? "#94A3B8" : "rgba(255,255,255,0.25)"}
+                strokeWidth={2}
+              />
+            )}
+
+            {/* 7. Gola Base */}
+            {garmentTemplate.collarPath && (
+              <Path
+                data={garmentTemplate.collarPath}
+                fill={selectedColor.hex === "#FFFFFF" ? "#F1F5F9" : "rgba(0,0,0,0.2)"}
+                stroke={selectedColor.hex === "#FFFFFF" ? "#94A3B8" : "rgba(255,255,255,0.25)"}
+                strokeWidth={2}
+              />
+            )}
+
+            {/* 8. Lapelas estruturadas da Gola Polo dobrada com sombra suave */}
+            {garmentTemplate.collarFlapsPath && (
+              <Path
+                data={garmentTemplate.collarFlapsPath}
+                fill={selectedColor.hex === "#FFFFFF" ? "#FFFFFF" : selectedColor.hex}
+                stroke={selectedColor.hex === "#FFFFFF" ? "#64748B" : "rgba(0,0,0,0.38)"}
+                strokeWidth={2}
+                shadowColor="rgba(0,0,0,0.28)"
+                shadowBlur={8}
+                shadowOffset={{ x: 0, y: 4 }}
+              />
+            )}
+
+            {/* 9. Botões com Costura e Reflexo Perolado */}
+            {garmentTemplate.buttons?.map((btn, bIdx) => (
+              <Group key={bIdx} x={btn.x} y={btn.y}>
+                <Circle radius={btn.r} fill="rgba(0,0,0,0.25)" offsetY={-1.5} />
+                <Circle
+                  radius={btn.r}
+                  fill="#F8FAFC"
+                  stroke="#64748B"
+                  strokeWidth={1.2}
+                />
+                <Circle radius={btn.r - 2} stroke="#CBD5E1" strokeWidth={0.8} />
+                <Circle x={-1.5} y={-1.5} radius={0.7} fill="#334155" />
+                <Circle x={1.5} y={-1.5} radius={0.7} fill="#334155" />
+                <Circle x={-1.5} y={1.5} radius={0.7} fill="#334155" />
+                <Circle x={1.5} y={1.5} radius={0.7} fill="#334155" />
+              </Group>
+            ))}
           </Group>
         </Layer>
 

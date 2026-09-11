@@ -21,7 +21,7 @@ import { AdminHeader } from "@/components/layout/admin-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { SHIRT_SVG_TEMPLATES } from "@/lib/svg-templates";
+import { getGarmentType, getGarmentTemplate } from "@/lib/svg-templates";
 import type {
   UniformModel,
   UniformView,
@@ -102,6 +102,8 @@ export default function AdminModelosPage() {
   );
 
   const zonesOfCurrentView: CustomizationZone[] = currentView?.zones || [];
+  const garmentType = getGarmentType(activeModel?.name || activeModel?.id);
+  const garmentTemplate = getGarmentTemplate(garmentType, activeViewSide);
 
   // Salvar novo modelo ou editar modelo
   const handleSaveModel = async (e: React.FormEvent) => {
@@ -426,29 +428,93 @@ export default function AdminModelosPage() {
                   {/* Grid de coordenadas para precisão visual */}
                   <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
-                  {/* Silhueta Vetorial SVG da Vista */}
+                  {/* Silhueta Vetorial SVG da Vista Realista */}
                   <svg
                     viewBox="0 0 800 800"
                     className="w-full h-full drop-shadow-md select-none"
                     style={{ pointerEvents: "none" }}
                   >
+                    {/* Sombra de Piso */}
                     <path
-                      d={
-                        (SHIRT_SVG_TEMPLATES as Record<string, { path: string; collarPath: string }>)[activeViewSide]?.path ||
-                        SHIRT_SVG_TEMPLATES.FRONT.path
-                      }
+                      d={garmentTemplate.path}
+                      fill="rgba(0,0,0,0.06)"
+                      transform="translate(0, 10)"
+                    />
+
+                    {/* Silhueta Base do Tecido */}
+                    <path
+                      d={garmentTemplate.path}
                       className="fill-white dark:fill-zinc-900 stroke-slate-300 dark:stroke-zinc-700"
-                      strokeWidth="4"
+                      strokeWidth="3.5"
                       strokeLinejoin="round"
                     />
-                    <path
-                      d={
-                        (SHIRT_SVG_TEMPLATES as Record<string, { path: string; collarPath: string }>)[activeViewSide]?.collarPath ||
-                        SHIRT_SVG_TEMPLATES.FRONT.collarPath
-                      }
-                      className="fill-slate-200/50 dark:fill-zinc-800 stroke-slate-300 dark:stroke-zinc-700"
-                      strokeWidth="2"
-                    />
+
+                    {/* Sombras e Dobras Anatômicas de Caimento */}
+                    {garmentTemplate.shadowPath && (
+                      <path d={garmentTemplate.shadowPath} fill="rgba(0,0,0,0.08)" />
+                    )}
+
+                    {/* Pespontos Duplos */}
+                    {garmentTemplate.stitchesPath && (
+                      <path
+                        d={garmentTemplate.stitchesPath}
+                        stroke="rgba(0,0,0,0.2)"
+                        strokeWidth="1.2"
+                        strokeDasharray="3,3"
+                        fill="none"
+                      />
+                    )}
+
+                    {/* Punhos Canelados */}
+                    {garmentTemplate.cuffsPath && (
+                      <path
+                        d={garmentTemplate.cuffsPath}
+                        fill="rgba(0,0,0,0.05)"
+                        stroke="rgba(0,0,0,0.2)"
+                        strokeWidth="1.5"
+                      />
+                    )}
+
+                    {/* Peitilho da Polo */}
+                    {garmentTemplate.placketPath && (
+                      <path
+                        d={garmentTemplate.placketPath}
+                        fill="rgba(0,0,0,0.08)"
+                        stroke="rgba(0,0,0,0.25)"
+                        strokeWidth="1.5"
+                      />
+                    )}
+
+                    {/* Base da Gola */}
+                    {garmentTemplate.collarPath && (
+                      <path
+                        d={garmentTemplate.collarPath}
+                        className="fill-slate-200/60 dark:fill-zinc-800 stroke-slate-300 dark:stroke-zinc-700"
+                        strokeWidth="2"
+                      />
+                    )}
+
+                    {/* Lapelas Dobradas da Polo */}
+                    {garmentTemplate.collarFlapsPath && (
+                      <path
+                        d={garmentTemplate.collarFlapsPath}
+                        className="fill-slate-100 dark:fill-zinc-800 stroke-slate-400 dark:stroke-zinc-600"
+                        strokeWidth="2"
+                      />
+                    )}
+
+                    {/* Botões Perolados da Polo */}
+                    {garmentTemplate.buttons?.map((btn, idx) => (
+                      <circle
+                        key={idx}
+                        cx={btn.x}
+                        cy={btn.y}
+                        r={btn.r}
+                        fill="#FAF9F6"
+                        stroke="#94A3B8"
+                        strokeWidth="1.2"
+                      />
+                    ))}
                   </svg>
 
                   {/* Zonas de Personalização Posicionadas no Canvas */}

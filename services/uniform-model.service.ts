@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import { SHIRT_SVG_TEMPLATES } from "@/lib/svg-templates";
+import { GARMENT_TEMPLATES, getGarmentType, type GarmentType } from "@/lib/svg-templates";
 import type {
   UniformModel,
   UniformView,
@@ -12,142 +12,73 @@ import type {
   ElementType,
 } from "@/types/uniform-model";
 
-// Memória local de fallback para garantir funcionamento contínuo e builds estáveis
+function buildModelViews(modelId: string, type: GarmentType): UniformView[] {
+  const tmpl = GARMENT_TEMPLATES[type];
+  const viewSides: ViewSide[] = ["FRONT", "BACK", "LEFT_SLEEVE", "RIGHT_SLEEVE"];
+  return viewSides.map((side, idx) => {
+    const v = tmpl.views[side];
+    return {
+      id: `view-${modelId}-${side.toLowerCase()}`,
+      shirt_model_id: modelId,
+      view_side: side,
+      preview_image_url: `/assets/templates/${side.toLowerCase()}.svg`,
+      svg_content: v.path,
+      canvas_width: v.width,
+      canvas_height: v.height,
+      sort_order: idx + 1,
+      zones: v.defaultZones.map((z, zIdx) => ({
+        id: `zone-${modelId}-${side.toLowerCase()}-${zIdx + 1}`,
+        shirt_view_id: `view-${modelId}-${side.toLowerCase()}`,
+        zone_name: z.zone_name,
+        zone_type: z.zone_type,
+        x: z.x,
+        y: z.y,
+        width: z.width,
+        height: z.height,
+        rotation: z.rotation,
+        min_scale: z.min_scale,
+        max_scale: z.max_scale,
+        allowed_element_types: z.allowed_element_types as ElementType[],
+        is_active: z.is_active,
+      })),
+    };
+  });
+}
+
+// Memória local com catálogo padrão de alta fidelidade
 let memoryModels: UniformModel[] = [
   {
     id: "model-camisa-tradicional-01",
-    name: "Camiseta Tradicional Meia Malha",
+    name: "Camiseta Tradicional Meia Malha / Dry Fit",
     description: "Modelo clássico de alta durabilidade, gola careca em ribana e mangas curtas. Ideal para uniformes operacionais e eventos corporativos.",
     product_id: null,
-    product_name: "Camiseta Algodão 30.1",
+    product_name: "Camiseta Algodão 30.1 / Dry Fit",
     base_asset_url: "/assets/templates/front.svg",
     is_active: true,
     created_at: new Date().toISOString(),
-    views: [
-      {
-        id: "view-front-01",
-        shirt_model_id: "model-camisa-tradicional-01",
-        view_side: "FRONT",
-        preview_image_url: "/assets/templates/front.svg",
-        svg_content: SHIRT_SVG_TEMPLATES.FRONT.path,
-        canvas_width: 800,
-        canvas_height: 800,
-        sort_order: 1,
-        zones: [
-          {
-            id: "zone-peito-esq-01",
-            shirt_view_id: "view-front-01",
-            zone_name: "Peito Esquerdo (Logo)",
-            zone_type: "PEITO_ESQUERDO",
-            x: 460,
-            y: 220,
-            width: 110,
-            height: 110,
-            rotation: 0,
-            min_scale: 0.2,
-            max_scale: 2.0,
-            allowed_element_types: ["LOGO", "TEXT", "IMAGE"],
-            is_active: true,
-          },
-          {
-            id: "zone-centro-front-01",
-            shirt_view_id: "view-front-01",
-            zone_name: "Centro Frontal (Estampa)",
-            zone_type: "CENTRO_FRONTAL",
-            x: 270,
-            y: 260,
-            width: 260,
-            height: 320,
-            rotation: 0,
-            min_scale: 0.3,
-            max_scale: 2.5,
-            allowed_element_types: ["LOGO", "TEXT", "NUMBER", "IMAGE"],
-            is_active: true,
-          },
-        ],
-      },
-      {
-        id: "view-back-01",
-        shirt_model_id: "model-camisa-tradicional-01",
-        view_side: "BACK",
-        preview_image_url: "/assets/templates/back.svg",
-        svg_content: SHIRT_SVG_TEMPLATES.BACK.path,
-        canvas_width: 800,
-        canvas_height: 800,
-        sort_order: 2,
-        zones: [
-          {
-            id: "zone-costas-01",
-            shirt_view_id: "view-back-01",
-            zone_name: "Costas Completa",
-            zone_type: "COSTAS",
-            x: 260,
-            y: 190,
-            width: 280,
-            height: 380,
-            rotation: 0,
-            min_scale: 0.3,
-            max_scale: 2.5,
-            allowed_element_types: ["LOGO", "TEXT", "NUMBER", "IMAGE"],
-            is_active: true,
-          },
-        ],
-      },
-      {
-        id: "view-lsleeve-01",
-        shirt_model_id: "model-camisa-tradicional-01",
-        view_side: "LEFT_SLEEVE",
-        preview_image_url: "/assets/templates/left_sleeve.svg",
-        svg_content: SHIRT_SVG_TEMPLATES.LEFT_SLEEVE.path,
-        canvas_width: 800,
-        canvas_height: 800,
-        sort_order: 3,
-        zones: [
-          {
-            id: "zone-manga-esq-01",
-            shirt_view_id: "view-lsleeve-01",
-            zone_name: "Manga Esquerda",
-            zone_type: "MANGA_ESQUERDA",
-            x: 320,
-            y: 300,
-            width: 160,
-            height: 160,
-            rotation: 0,
-            min_scale: 0.2,
-            max_scale: 2.0,
-            allowed_element_types: ["LOGO", "TEXT", "NUMBER"],
-            is_active: true,
-          },
-        ],
-      },
-      {
-        id: "view-rsleeve-01",
-        shirt_model_id: "model-camisa-tradicional-01",
-        view_side: "RIGHT_SLEEVE",
-        preview_image_url: "/assets/templates/right_sleeve.svg",
-        svg_content: SHIRT_SVG_TEMPLATES.RIGHT_SLEEVE.path,
-        canvas_width: 800,
-        canvas_height: 800,
-        sort_order: 4,
-        zones: [
-          {
-            id: "zone-manga-dir-01",
-            shirt_view_id: "view-rsleeve-01",
-            zone_name: "Manga Direita",
-            zone_type: "MANGA_DIREITA",
-            x: 320,
-            y: 300,
-            width: 160,
-            height: 160,
-            rotation: 0,
-            min_scale: 0.2,
-            max_scale: 2.0,
-            allowed_element_types: ["LOGO", "TEXT", "NUMBER"],
-            is_active: true,
-          },
-        ],
-      },
-    ],
+    views: buildModelViews("model-camisa-tradicional-01", "TRADITIONAL"),
+  },
+  {
+    id: "model-camisa-polo-02",
+    name: "Camisa Polo Empresarial Piquet",
+    description: "Acabamento nobre com gola polo estruturada, peitilho com 2 botões e mangas com punho canelado em ribana. Ideal para equipes comerciais e executivas.",
+    product_id: null,
+    product_name: "Camisa Polo Piquet 50/50",
+    base_asset_url: "/assets/templates/front.svg",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    views: buildModelViews("model-camisa-polo-02", "POLO"),
+  },
+  {
+    id: "model-camisa-manga-longa-03",
+    name: "Camisa Manga Longa Operacional / Proteção UV",
+    description: "Mangas longas estendidas até os punhos com acabamento em ribana. Máxima proteção solar e térmica para indústrias, eventos e esportes.",
+    product_id: null,
+    product_name: "Camisa Manga Longa Dry UV",
+    base_asset_url: "/assets/templates/front.svg",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    views: buildModelViews("model-camisa-manga-longa-03", "MANGA_LONGA"),
   },
 ];
 
@@ -229,6 +160,21 @@ export class UniformModelService {
         });
       }
 
+      // Mesclar modelos padrão de alta fidelidade que ainda não estejam salvos no banco
+      for (const mm of memoryModels) {
+        const exists = models.some((m) => {
+          const mLower = m.name.toLowerCase();
+          const mmLower = mm.name.toLowerCase();
+          if (mmLower.includes("polo") && mLower.includes("polo")) return true;
+          if (mmLower.includes("longa") && (mLower.includes("longa") || mLower.includes("comprida"))) return true;
+          if (mmLower.includes("tradicional") && mLower.includes("tradicional")) return true;
+          return m.id === mm.id;
+        });
+        if (!exists) {
+          models.push(mm);
+        }
+      }
+
       return models;
     } catch {
       // Fallback em ambiente local sem PostgreSQL ativo
@@ -249,6 +195,7 @@ export class UniformModelService {
    */
   static async createModel(dto: CreateUniformModelDTO): Promise<UniformModel> {
     const id = `model-${Date.now()}`;
+    const garmentType = getGarmentType(dto.name);
     const newModel: UniformModel = {
       id,
       name: dto.name,
@@ -257,146 +204,7 @@ export class UniformModelService {
       base_asset_url: dto.base_asset_url || "/assets/templates/front.svg",
       is_active: dto.is_active ?? true,
       created_at: new Date().toISOString(),
-      views: [
-        {
-          id: `view-front-${Date.now()}`,
-          shirt_model_id: id,
-          view_side: "FRONT",
-          preview_image_url: "/assets/templates/front.svg",
-          svg_content: SHIRT_SVG_TEMPLATES.FRONT.path,
-          canvas_width: 800,
-          canvas_height: 800,
-          sort_order: 1,
-          zones: [
-            {
-              id: `zone-peito-esq-${Date.now()}`,
-              shirt_view_id: `view-front-${Date.now()}`,
-              zone_name: "Peito Esquerdo",
-              zone_type: "PEITO_ESQUERDO",
-              x: 460,
-              y: 220,
-              width: 110,
-              height: 110,
-              rotation: 0,
-              min_scale: 0.2,
-              max_scale: 2.0,
-              allowed_element_types: ["LOGO", "TEXT", "IMAGE"],
-              is_active: true,
-            },
-            {
-              id: `zone-peito-dir-${Date.now()}`,
-              shirt_view_id: `view-front-${Date.now()}`,
-              zone_name: "Peito Direito",
-              zone_type: "PEITO_DIREITO",
-              x: 230,
-              y: 220,
-              width: 110,
-              height: 110,
-              rotation: 0,
-              min_scale: 0.2,
-              max_scale: 2.0,
-              allowed_element_types: ["LOGO", "TEXT", "IMAGE"],
-              is_active: true,
-            },
-            {
-              id: `zone-centro-front-${Date.now()}`,
-              shirt_view_id: `view-front-${Date.now()}`,
-              zone_name: "Centro Frontal",
-              zone_type: "CENTRO_FRONTAL",
-              x: 270,
-              y: 260,
-              width: 260,
-              height: 320,
-              rotation: 0,
-              min_scale: 0.3,
-              max_scale: 2.5,
-              allowed_element_types: ["LOGO", "TEXT", "NUMBER", "IMAGE"],
-              is_active: true,
-            },
-          ],
-        },
-        {
-          id: `view-back-${Date.now()}`,
-          shirt_model_id: id,
-          view_side: "BACK",
-          preview_image_url: "/assets/templates/back.svg",
-          svg_content: SHIRT_SVG_TEMPLATES.BACK.path,
-          canvas_width: 800,
-          canvas_height: 800,
-          sort_order: 2,
-          zones: [
-            {
-              id: `zone-costas-${Date.now()}`,
-              shirt_view_id: `view-back-${Date.now()}`,
-              zone_name: "Costas",
-              zone_type: "COSTAS",
-              x: 260,
-              y: 190,
-              width: 280,
-              height: 380,
-              rotation: 0,
-              min_scale: 0.3,
-              max_scale: 2.5,
-              allowed_element_types: ["LOGO", "TEXT", "NUMBER", "IMAGE"],
-              is_active: true,
-            },
-          ],
-        },
-        {
-          id: `view-lsleeve-${Date.now()}`,
-          shirt_model_id: id,
-          view_side: "LEFT_SLEEVE",
-          preview_image_url: "/assets/templates/left_sleeve.svg",
-          svg_content: SHIRT_SVG_TEMPLATES.LEFT_SLEEVE.path,
-          canvas_width: 800,
-          canvas_height: 800,
-          sort_order: 3,
-          zones: [
-            {
-              id: `zone-manga-esq-${Date.now()}`,
-              shirt_view_id: `view-lsleeve-${Date.now()}`,
-              zone_name: "Manga Esquerda",
-              zone_type: "MANGA_ESQUERDA",
-              x: 320,
-              y: 300,
-              width: 160,
-              height: 160,
-              rotation: 0,
-              min_scale: 0.2,
-              max_scale: 2.0,
-              allowed_element_types: ["LOGO", "TEXT", "NUMBER"],
-              is_active: true,
-            },
-          ],
-        },
-        {
-          id: `view-rsleeve-${Date.now()}`,
-          shirt_model_id: id,
-          view_side: "RIGHT_SLEEVE",
-          preview_image_url: "/assets/templates/right_sleeve.svg",
-          svg_content: SHIRT_SVG_TEMPLATES.RIGHT_SLEEVE.path,
-          canvas_width: 800,
-          canvas_height: 800,
-          sort_order: 4,
-          zones: [
-            {
-              id: `zone-manga-dir-${Date.now()}`,
-              shirt_view_id: `view-rsleeve-${Date.now()}`,
-              zone_name: "Manga Direita",
-              zone_type: "MANGA_DIREITA",
-              x: 320,
-              y: 300,
-              width: 160,
-              height: 160,
-              rotation: 0,
-              min_scale: 0.2,
-              max_scale: 2.0,
-              allowed_element_types: ["LOGO", "TEXT", "NUMBER"],
-              is_active: true,
-            },
-          ],
-        },
-      ],
+      views: buildModelViews(id, garmentType),
     };
 
     try {

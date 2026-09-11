@@ -4,6 +4,8 @@
 
 import type { OrderSnapshot } from "@/types/orders";
 import type { CustomizerElement } from "@/types/configurator";
+import { getGarmentType, getGarmentTemplate } from "@/lib/svg-templates";
+import type { ViewSide } from "@/types/uniform-model";
 
 /**
  * Normaliza o nome do arquivo conforme convenção exigida:
@@ -24,7 +26,7 @@ export function formatProductionFilename(
  * Preserva cores, tipografia, rotações, escalas e elementos gráficos.
  */
 export function generateViewSVG(
-  viewSide: "FRONT" | "BACK" | "LEFT" | "RIGHT" | "LEFT_SLEEVE" | "RIGHT_SLEEVE",
+  viewSide: ViewSide | "LEFT" | "RIGHT",
   snapshot: OrderSnapshot,
   width = 800,
   height = 800
@@ -35,32 +37,15 @@ export function generateViewSVG(
     snapshot.views?.[viewSide.replace("_SLEEVE", "")] ||
     [];
 
-  // Silhueta estilizada da camiseta
-  let silhouettePath = "";
-  if (viewSide === "FRONT" || viewSide === "BACK") {
-    silhouettePath = `
-      M 280 80
-      Q 400 130 520 80
-      L 700 180
-      L 630 300
-      L 540 250
-      L 550 720
-      Q 400 740 250 720
-      L 260 250
-      L 170 300
-      L 100 180
-      Z
-    `;
-  } else {
-    // Manga
-    silhouettePath = `
-      M 200 120
-      L 600 120
-      L 520 680
-      L 280 680
-      Z
-    `;
-  }
+  const normalizedSide: ViewSide =
+    viewSide === "LEFT"
+      ? "LEFT_SLEEVE"
+      : viewSide === "RIGHT"
+      ? "RIGHT_SLEEVE"
+      : (viewSide as ViewSide);
+
+  const garmentType = getGarmentType(snapshot.model_name || snapshot.shirt_model_id || undefined);
+  const template = getGarmentTemplate(garmentType, normalizedSide);
 
   // Gera elementos SVG de textos, logos e números
   const renderedElements = elements
@@ -121,21 +106,36 @@ export function generateViewSVG(
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   <defs>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.25"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.2"/>
     </filter>
   </defs>
   
-  <!-- Fundo da Camiseta na Cor Aprovada -->
-  <path d="${silhouettePath}" fill="${baseColor}" stroke="#333333" stroke-width="3" filter="url(#shadow)" />
+  <!-- Sombra no Chão do Estúdio -->
+  <path d="${template.path}" fill="rgba(0,0,0,0.12)" transform="translate(0, 12)" filter="url(#shadow)" />
   
-  <!-- Gola e Detalhes da Modelagem -->
-  ${
-    viewSide === "FRONT"
-      ? `<path d="M 330 85 Q 400 170 470 85" fill="none" stroke="#222222" stroke-width="5" />`
-      : viewSide === "BACK"
-      ? `<path d="M 340 85 Q 400 115 460 85" fill="none" stroke="#222222" stroke-width="4" />`
-      : ""
-  }
+  <!-- Base do Tecido na Cor Aprovada -->
+  <path d="${template.path}" fill="${baseColor}" stroke="#333333" stroke-width="3" />
+  
+  <!-- Dobras e Sombras Anatômicas de Caimento -->
+  ${template.shadowPath ? `<path d="${template.shadowPath}" fill="rgba(0,0,0,0.12)" />` : ""}
+
+  <!-- Pespontos e Costura Dupla -->
+  ${template.stitchesPath ? `<path d="${template.stitchesPath}" stroke="rgba(0,0,0,0.2)" stroke-width="1.2" stroke-dasharray="3,3" fill="none" />` : ""}
+
+  <!-- Punhos Canelados -->
+  ${template.cuffsPath ? `<path d="${template.cuffsPath}" fill="rgba(0,0,0,0.06)" stroke="rgba(0,0,0,0.25)" stroke-width="1.5" />` : ""}
+
+  <!-- Peitilho da Polo -->
+  ${template.placketPath ? `<path d="${template.placketPath}" fill="rgba(0,0,0,0.08)" stroke="rgba(0,0,0,0.25)" stroke-width="1.5" />` : ""}
+
+  <!-- Base da Gola -->
+  ${template.collarPath ? `<path d="${template.collarPath}" fill="rgba(0,0,0,0.08)" stroke="rgba(0,0,0,0.28)" stroke-width="2" />` : ""}
+
+  <!-- Lapelas Estruturadas Polo -->
+  ${template.collarFlapsPath ? `<path d="${template.collarFlapsPath}" fill="${baseColor}" stroke="rgba(0,0,0,0.3)" stroke-width="2" />` : ""}
+
+  <!-- Botões Perolados -->
+  ${template.buttons ? template.buttons.map((b) => `<circle cx="${b.x}" cy="${b.y}" r="${b.r}" fill="#FAF9F6" stroke="#999" stroke-width="1.2" />`).join("\n  ") : ""}
 
   <!-- Elementos de Personalização -->
   <g id="customization-layer">
