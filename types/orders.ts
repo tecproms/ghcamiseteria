@@ -16,8 +16,11 @@ export type OrderStatus =
 
 export type OrderPaymentStatus =
   | "PENDING"
-  | "PAID"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED"
   | "REFUNDED"
+  | "PAID"
   | "FAILED";
 
 export interface OrderHistoryEntry {
@@ -96,6 +99,20 @@ export interface Order {
   delivery_date?: string | null;
   notes?: string | null;
   admin_notes?: string | null;
+  payment_id?: string | null;
+  payment_method?: "pix" | "credit_card" | string | null;
+  payment_details?: {
+    qr_code?: string;
+    qr_code_base64?: string;
+    ticket_url?: string;
+    preference_id?: string;
+    init_point?: string;
+    sandbox_init_point?: string;
+    installments?: number;
+    status_detail?: string;
+    [key: string]: unknown;
+  } | null;
+  paid_at?: string | null;
   history: OrderHistoryEntry[];
   created_at: string;
   updated_at: string;
@@ -118,4 +135,32 @@ export interface UpdateOrderStatusDTO {
   estimated_delivery_date?: string;
   delivery_date?: string;
   admin_notes?: string;
+}
+
+export interface CreatePixPaymentDTO {
+  order_id: string;
+  payer_cpf?: string;
+  payer_name?: string;
+  payer_email?: string;
+}
+
+export interface CreateCardPreferenceDTO {
+  order_id: string;
+  payer_name?: string;
+  payer_email?: string;
+}
+
+export interface PixPaymentResponse {
+  payment_id: string | number;
+  status: OrderPaymentStatus;
+  qr_code: string;
+  qr_code_base64: string;
+  ticket_url?: string;
+  expires_at?: string;
+}
+
+export interface CardPreferenceResponse {
+  preference_id: string;
+  init_point: string;
+  sandbox_init_point?: string;
 }

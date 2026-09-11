@@ -18,6 +18,7 @@ import {
   Shirt,
   ShoppingBag,
   History,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -355,7 +356,18 @@ export default function MeusPedidosPage() {
                   </div>
 
                   {/* Ações */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                    {order.status === "PENDING_PAYMENT" && (
+                      <Link href={`/pagamento/${order.id}`} className="block w-full">
+                        <Button
+                          size="sm"
+                          className="w-full h-8 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 font-bold gap-1.5 shadow-sm"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Pagar Pedido (Pix / Cartão)
+                        </Button>
+                      </Link>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -566,7 +578,20 @@ export default function MeusPedidosPage() {
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <div>
+                {selectedOrder.status === "PENDING_PAYMENT" && (
+                  <Link href={`/pagamento/${selectedOrder.id}`}>
+                    <Button
+                      size="sm"
+                      className="h-8 px-4 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5"
+                    >
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Pagar Pedido Agora
+                    </Button>
+                  </Link>
+                )}
+              </div>
               <Button
                 size="sm"
                 onClick={() => setSelectedOrder(null)}

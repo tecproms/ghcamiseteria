@@ -8,6 +8,7 @@ import type {
   Order,
   OrderItem,
   OrderStatus,
+  OrderPaymentStatus,
   OrderSnapshot,
   CreateOrderFromQuoteDTO,
   UpdateOrderStatusDTO,
@@ -242,6 +243,10 @@ export class OrdersService {
           delivery_date: r.delivery_date,
           notes: r.notes,
           admin_notes: r.admin_notes,
+          payment_id: r.payment_id || null,
+          payment_method: r.payment_method || null,
+          payment_details: typeof r.payment_details === "string" ? JSON.parse(r.payment_details) : r.payment_details || null,
+          paid_at: r.paid_at || null,
           customer_info: typeof r.customer_info === "string" ? JSON.parse(r.customer_info) : r.customer_info,
           history: typeof r.history === "string" ? JSON.parse(r.history) : r.history || [],
           items: (r.items || []).filter(Boolean).map((it: Record<string, unknown>) => ({
@@ -297,6 +302,10 @@ export class OrdersService {
           delivery_date: r.delivery_date,
           notes: r.notes,
           admin_notes: r.admin_notes,
+          payment_id: r.payment_id || null,
+          payment_method: r.payment_method || null,
+          payment_details: typeof r.payment_details === "string" ? JSON.parse(r.payment_details) : r.payment_details || null,
+          paid_at: r.paid_at || null,
           customer_info: typeof r.customer_info === "string" ? JSON.parse(r.customer_info) : r.customer_info,
           history: typeof r.history === "string" ? JSON.parse(r.history) : r.history || [],
           items: (r.items || []).filter(Boolean).map((it: Record<string, unknown>) => ({
@@ -443,6 +452,10 @@ export class OrdersService {
           delivery_date: r.delivery_date,
           notes: r.notes,
           admin_notes: r.admin_notes,
+          payment_id: r.payment_id || null,
+          payment_method: r.payment_method || null,
+          payment_details: typeof r.payment_details === "string" ? JSON.parse(r.payment_details) : r.payment_details || null,
+          paid_at: r.paid_at || null,
           customer_info: typeof r.customer_info === "string" ? JSON.parse(r.customer_info) : r.customer_info,
           history: typeof r.history === "string" ? JSON.parse(r.history) : r.history || [],
           items: (r.items || []).filter(Boolean).map((it: Record<string, unknown>) => ({
@@ -464,5 +477,117 @@ export class OrdersService {
       result = result.filter((o) => o.status === filters.status);
     }
     return result;
+  }
+
+  /**
+   * Vincula detalhes do pagamento gerado (Pix QR Code, Preference ID, etc.)
+   */
+  static async attachPaymentDetails(
+    orderId: string,
+    data: {
+      payment_id: string;
+      payment_method: string;
+      payment_details: Record<string, unknown>;
+    }
+  ): Promise<Order | null> {
+    const order = await this.getOrderById(orderId, "system", true);
+    if (!order) return null;
+
+    order.payment_id = data.payment_id;
+    order.payment_method = data.payment_method;
+    order.payment_details = { ...(order.payment_details || {}), ...data.payment_details };
+    order.updated_at = new Date().toISOString();
+
+    try {
+      await pool.query(
+        `UPDATE public.orders
+         SET payment_id = $1, payment_method = $2, payment_details = $3, updated_at = $4
+         WHERE id = $5`,
+        [order.payment_id, order.payment_method, JSON.stringify(order.payment_details), order.updated_at, orderId]
+      );
+    } catch {
+      // Fallback
+    }
+
+    const memIdx = memoryOrders.findIndex((o) => o.id === orderId);
+    if (memIdx !== -1) {
+      memoryOrders[memIdx] = order;
+    }
+
+    return order;
+  }
+
+  /**
+   * Atualização segura e validada no servidor do status de pagamento (Webhook ou Validação Oficial)
+   */
+  static async recordPaymentTransition(
+    orderId: string,
+    paymentStatus: OrderPaymentStatus,
+    details?: {
+      payment_id?: string;
+      payment_method?: string;
+      status_detail?: string;
+      actor?: "system" | "admin" | "mercadopago";
+      notes?: string;
+    }
+  ): Promise<Order | null> {
+    const order = await this.getOrderById(orderId, "system", true);
+    if (!order) return null;
+
+    const now = new Date().toISOString();
+    const isApproved = paymentStatus === "APPROVED" || paymentStatus === "PAID";
+    const previousStatus = order.payment_status;
+
+    order.payment_status = isApproved ? "APPROVED" : paymentStatus;
+    if (details?.payment_id) order.payment_id = details.payment_id;
+    if (details?.payment_method) order.payment_method = details.payment_method;
+    if (isApproved) {
+      order.status = "PAID";
+      order.paid_at = now;
+    } else if (paymentStatus === "CANCELLED") {
+      order.status = "CANCELLED";
+    }
+
+    const historyEntry: OrderHistoryEntry = {
+      id: `hist-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      action: isApproved ? "PAYMENT_CONFIRMED" : `PAYMENT_${paymentStatus}`,
+      actor: details?.actor === "admin" ? "admin" : "system",
+      actorName: details?.actor === "mercadopago" ? "Mercado Pago Webhook" : "Sistema de Pagamentos",
+      timestamp: now,
+      previousStatus: previousStatus,
+      newStatus: order.payment_status,
+      notes: details?.notes || `Status de pagamento atualizado para ${paymentStatus} via Mercado Pago.`,
+    };
+
+    order.history = [...(order.history || []), historyEntry];
+    order.updated_at = now;
+
+    try {
+      await pool.query(
+        `UPDATE public.orders
+         SET status = $1, payment_status = $2, payment_id = $3, payment_method = $4,
+             paid_at = $5, history = $6, updated_at = $7
+         WHERE id = $8`,
+        [
+          order.status,
+          order.payment_status,
+          order.payment_id,
+          order.payment_method,
+          order.paid_at,
+          JSON.stringify(order.history),
+          now,
+          orderId,
+        ]
+      );
+    } catch {
+      // Fallback
+    }
+
+    const memIdx = memoryOrders.findIndex((o) => o.id === orderId);
+    if (memIdx !== -1) {
+      memoryOrders[memIdx] = order;
+    }
+
+    return order;
   }
 }
