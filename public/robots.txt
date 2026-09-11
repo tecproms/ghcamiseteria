@@ -1,0 +1,4 @@
+# User-agent rules
+User-agent: *
+Allow: /
+Disallow: /admin/
