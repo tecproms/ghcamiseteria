@@ -67,8 +67,8 @@ export function AdminSidebar() {
         </nav>
       </div>
 
-      {/* Footer link to public site */}
-      <div className="p-4 border-t border-slate-200">
+      {/* Footer link to public site & credits */}
+      <div className="p-4 border-t border-slate-200 space-y-2">
         <Link
           href="/"
           className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
@@ -76,6 +76,17 @@ export function AdminSidebar() {
           <ArrowLeft className="h-4 w-4" />
           <span>Voltar à Loja Pública</span>
         </Link>
+        <div className="px-3 text-[11px] text-slate-400">
+          Criado por{" "}
+          <a
+            href="https://techproms.com.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            Techpro MS
+          </a>
+        </div>
       </div>
     </aside>
   );

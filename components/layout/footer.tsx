@@ -61,8 +61,19 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-slate-200 pt-8 text-center text-xs text-slate-400">
+        <div className="mt-8 border-t border-slate-200 pt-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
           <p>© {new Date().getFullYear()} GH Camiseteria & Uniformes Personalizados. Todos os direitos reservados.</p>
+          <p>
+            Criado por{" "}
+            <a
+              href="https://techproms.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Techpro MS
+            </a>
+          </p>
         </div>
       </div>
     </footer>
