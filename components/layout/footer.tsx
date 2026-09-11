@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shirt } from "lucide-react";
+import Image from "next/image";
 
 export function Footer() {
   return (
@@ -7,11 +7,17 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-slate-900">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
-                <Shirt className="h-4 w-4" />
+            <div className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-slate-900">
+              <div className="relative h-10 w-10 flex items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="GH Camiseteria"
+                  width={40}
+                  height={40}
+                  className="object-contain"
+                />
               </div>
-              <span>GH Camiseteria</span>
+              <span className="font-extrabold tracking-tight text-slate-900">GH Camiseteria</span>
             </div>
             <p className="text-sm text-slate-500 max-w-md">
               Especialistas em uniformes personalizados, camisas para empresas, eventos e equipes com qualidade profissional e acabamento impecável.

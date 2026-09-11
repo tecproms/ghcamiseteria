@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -11,7 +12,6 @@ import {
   FileText,
   Factory,
   ArrowLeft,
-  Shirt,
 } from "lucide-react";
 
 export const adminNavItems = [
@@ -31,12 +31,18 @@ export function AdminSidebar() {
     <aside className="w-64 border-r border-slate-200 bg-white flex flex-col shrink-0 min-h-screen">
       {/* Brand */}
       <div className="h-16 flex items-center px-6 border-b border-slate-200">
-        <Link href="/admin/dashboard" className="flex items-center gap-2 font-bold text-slate-900">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
-            <Shirt className="h-4 w-4" />
+        <Link href="/admin/dashboard" className="flex items-center gap-2.5 font-bold text-slate-900">
+          <div className="relative h-8 w-8 flex items-center justify-center">
+            <Image
+              src="/logo.png"
+              alt="GH Camiseteria"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
           </div>
           <div className="leading-none">
-            <div className="text-sm font-semibold">GH Camiseteria</div>
+            <div className="text-sm font-bold">GH Camiseteria</div>
             <div className="text-[10px] text-slate-400 font-normal">Painel Administrativo</div>
           </div>
         </Link>

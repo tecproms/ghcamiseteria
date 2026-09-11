@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GH Camiseteria | Uniformes Personalizados de Alta Qualidade",
   description: "Plataforma de uniformes corporativos, esportivos e promocionais sob medida com acabamento profissional.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({

@@ -2,8 +2,9 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shirt, Lock, Mail, User, Phone, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Lock, Mail, User, Phone, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -99,8 +100,15 @@ function LoginForm() {
     <div className="flex min-h-[calc(100vh-16rem)] items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md shadow-md">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white mb-2">
-            <Shirt className="h-6 w-6" />
+          <div className="relative mx-auto h-14 w-14 mb-2 flex items-center justify-center">
+            <Image
+              src="/logo.png"
+              alt="GH Camiseteria"
+              width={56}
+              height={56}
+              className="object-contain"
+              priority
+            />
           </div>
           <CardTitle className="text-2xl">
             {isSignUp ? "Criar Conta na GH Camiseteria" : "Acesse sua Conta"}

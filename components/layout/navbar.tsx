@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Shirt, User, ShieldCheck, UserCheck } from "lucide-react";
+import { Menu, X, User, ShieldCheck, UserCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export function Navbar() {
@@ -29,11 +30,18 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-slate-900">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
-            <Shirt className="h-5 w-5" />
+        <Link href="/" className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-slate-900">
+          <div className="relative h-10 w-10 flex items-center justify-center">
+            <Image
+              src="/logo.png"
+              alt="GH Camiseteria"
+              width={40}
+              height={40}
+              className="object-contain"
+              priority
+            />
           </div>
-          <span>GH Camiseteria</span>
+          <span className="font-extrabold tracking-tight">GH Camiseteria</span>
         </Link>
 
         {/* Desktop Navigation */}
