@@ -314,21 +314,52 @@ export function KonvaConfiguratorStage() {
             {/* 1. Sombra suave projetada no piso de estúdio */}
             <Path
               data={garmentTemplate.path}
-              fill="rgba(0,0,0,0.12)"
-              offsetX={-6}
-              offsetY={-10}
+              fill="rgba(0,0,0,0.16)"
+              shadowColor="rgba(0,0,0,0.30)"
+              shadowBlur={26}
+              shadowOffsetY={16}
             />
+
+            {/* 1.1 Fundo interno visível da gola (Profundidade 3D da parte de trás da gola) */}
+            {garmentTemplate.innerCollarPath && (
+              <Path
+                data={garmentTemplate.innerCollarPath}
+                fill={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "#CBD5E1" : "rgba(0,0,0,0.38)"}
+                stroke={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "#94A3B8" : "rgba(0,0,0,0.50)"}
+                strokeWidth={1.5}
+              />
+            )}
 
             {/* 2. Tecido Base (Tingimento instantâneo com a cor do cliente) */}
             <Path
               data={garmentTemplate.path}
-              fill={selectedColor.hex}
-              stroke={selectedColor.hex === "#FFFFFF" ? "#CBD5E1" : "rgba(0,0,0,0.35)"}
+              fill={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "#F6F8FA" : selectedColor.hex}
+              stroke={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "#CBD5E1" : "rgba(0,0,0,0.35)"}
               strokeWidth={2.5}
               lineJoin="round"
             />
 
-            {/* 2.1 Efeito de Luz e Volume Fotográfico (Destaque tridimensional realista) */}
+            {/* 2.1 Volume 3D Cilíndrico do Tórax (Gradiente horizontal de arredondamento) */}
+            <Path
+              data={garmentTemplate.path}
+              fillLinearGradientStartPoint={{ x: 180, y: 350 }}
+              fillLinearGradientEndPoint={{ x: 620, y: 350 }}
+              fillLinearGradientColorStops={[
+                0,
+                selectedColor.hex.toUpperCase() === "#FFFFFF" ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.22)",
+                0.22,
+                "rgba(255,255,255,0.12)",
+                0.50,
+                "rgba(255,255,255,0.0)",
+                0.78,
+                "rgba(255,255,255,0.12)",
+                1,
+                selectedColor.hex.toUpperCase() === "#FFFFFF" ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.22)",
+              ]}
+              listening={false}
+            />
+
+            {/* 2.2 Efeito de Luz e Volume Vertical de Estúdio */}
             <Path
               data={garmentTemplate.path}
               fillLinearGradientStartPoint={{ x: 400, y: 80 }}
@@ -346,12 +377,31 @@ export function KonvaConfiguratorStage() {
               listening={false}
             />
 
+            {/* 2.3 Costuras das Cavas (Separação natural das mangas com o corpo) */}
+            {garmentTemplate.armholeSeamsPath && (
+              <>
+                <Path
+                  data={garmentTemplate.armholeSeamsPath}
+                  stroke={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.40)"}
+                  strokeWidth={2.2}
+                  lineCap="round"
+                />
+                <Path
+                  data={garmentTemplate.armholeSeamsPath}
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth={1}
+                  offsetX={-1}
+                  lineCap="round"
+                />
+              </>
+            )}
+
             {/* 3. Sombras Anatômicas de Dobras Naturais e Caimento */}
             {garmentTemplate.shadowPath && (
               <Path
                 data={garmentTemplate.shadowPath}
-                stroke={selectedColor.hex === "#FFFFFF" ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.26)"}
-                strokeWidth={3}
+                stroke={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.28)"}
+                strokeWidth={2.5}
                 lineCap="round"
                 lineJoin="round"
               />
@@ -361,7 +411,7 @@ export function KonvaConfiguratorStage() {
             {garmentTemplate.stitchesPath && (
               <Path
                 data={garmentTemplate.stitchesPath}
-                stroke={selectedColor.hex === "#FFFFFF" ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.20)"}
+                stroke={selectedColor.hex.toUpperCase() === "#FFFFFF" ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.22)"}
                 strokeWidth={1.5}
                 dash={[5, 3]}
               />
