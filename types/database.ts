@@ -51,7 +51,10 @@ export type Database = {
       // Entidades compatíveis com a fundação inicial
       profiles: {
         Row: UserProfile;
-        Insert: Omit<UserProfile, "created_at" | "updated_at">;
+        Insert: Omit<UserProfile, "created_at" | "updated_at"> & {
+          created_at?: string;
+          updated_at?: string;
+        };
         Update: Partial<Omit<UserProfile, "id">>;
         Relationships: [];
       };

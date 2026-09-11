@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Shirt, User, ShieldCheck } from "lucide-react";
+import { Menu, X, Shirt, User, ShieldCheck, UserCheck } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { profile, isAuthenticated, isAdmin } = useAuth();
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -20,6 +22,8 @@ export function Navbar() {
     if (href === "/" && pathname !== "/") return false;
     return pathname.startsWith(href);
   };
+
+  const displayName = profile?.full_name?.split(" ")[0] || "Perfil";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -51,20 +55,33 @@ export function Navbar() {
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/admin/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Admin
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-sm"
-          >
-            <User className="h-4 w-4" />
-            <span>Login</span>
-          </Link>
+          {(!isAuthenticated || isAdmin) && (
+            <Link
+              href="/admin/dashboard"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
+
+          {isAuthenticated ? (
+            <Link
+              href="/perfil"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              <UserCheck className="h-4 w-4 text-emerald-600" />
+              <span className="max-w-[120px] truncate">{displayName}</span>
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-sm"
+            >
+              <User className="h-4 w-4" />
+              <span>Login</span>
+            </Link>
+          )}
         </div>
 
         {/* Mobile menu button */}
@@ -100,22 +117,36 @@ export function Navbar() {
               </Link>
             ))}
             <div className="pt-4 border-t border-slate-100 space-y-2">
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-center text-sm font-medium text-white"
-              >
-                <User className="h-4 w-4" />
-                Login
-              </Link>
-              <Link
-                href="/admin/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-medium text-slate-700"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Painel Administrativo
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  href="/perfil"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-center text-sm font-medium text-white"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  Minha Conta ({displayName})
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-center text-sm font-medium text-white"
+                >
+                  <User className="h-4 w-4" />
+                  Login
+                </Link>
+              )}
+
+              {(!isAuthenticated || isAdmin) && (
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-medium text-slate-700"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Painel Administrativo
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -123,3 +154,4 @@ export function Navbar() {
     </header>
   );
 }
+

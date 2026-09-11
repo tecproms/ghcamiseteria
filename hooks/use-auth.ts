@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { UserProfile } from "@/types/auth";
+import { isRoleAdminOrManager, isRoleCustomer, type UserProfile } from "@/types/auth";
 import type { User } from "@supabase/supabase-js";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return data as UserProfile | null;
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -21,13 +32,8 @@ export function useAuth() {
         setUser(user);
 
         if (user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          setProfile(data as UserProfile | null);
+          const profileData = await fetchProfile(user.id);
+          setProfile(profileData);
         } else {
           setProfile(null);
         }
@@ -48,12 +54,8 @@ export function useAuth() {
       setUser(currentUser);
 
       if (currentUser) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", currentUser.id)
-          .maybeSingle();
-        setProfile(data as UserProfile | null);
+        const profileData = await fetchProfile(currentUser.id);
+        setProfile(profileData);
       } else {
         setProfile(null);
       }
@@ -65,5 +67,23 @@ export function useAuth() {
     };
   }, []);
 
-  return { user, profile, loading, isAuthenticated: !!user };
+  const refreshProfile = async () => {
+    if (!user) return;
+    const profileData = await fetchProfile(user.id);
+    setProfile(profileData);
+  };
+
+  const isAdmin = isRoleAdminOrManager(profile?.role);
+  const isCustomer = isRoleCustomer(profile?.role);
+
+  return {
+    user,
+    profile,
+    loading,
+    isAuthenticated: !!user,
+    isAdmin,
+    isCustomer,
+    refreshProfile,
+  };
 }
+
