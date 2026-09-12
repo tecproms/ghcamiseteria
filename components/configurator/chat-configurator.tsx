@@ -122,7 +122,7 @@ export function ChatConfigurator() {
     hex: "#FFFFFF",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoPosition, setLogoPosition] = useState<LogoPositionType | "COSTAS" | "MANGA">("PEITO_ESQUERDO");
+  const [logoPosition, setLogoPosition] = useState<LogoPositionType | "COSTAS" | "MANGA" | "BOLSO">("PEITO_ESQUERDO");
   const [quantity, setQuantity] = useState<number>(20);
   const [sizeDistribution, setSizeDistribution] = useState<Record<string, number>>({
     PP: 0,
@@ -155,6 +155,11 @@ export function ChatConfigurator() {
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState("");
   const [hasPocket, setHasPocket] = useState<boolean>(false);
+  const [pocketColor, setPocketColor] = useState<string | null>(null);
+  const [pocketOffsetX, setPocketOffsetX] = useState<number>(0);
+  const [pocketOffsetY, setPocketOffsetY] = useState<number>(0);
+  const [logoOffsetX, setLogoOffsetX] = useState<number>(0);
+  const [logoOffsetY, setLogoOffsetY] = useState<number>(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -482,6 +487,11 @@ export function ChatConfigurator() {
             fabric,
             desiredDeadline,
             hasPocket,
+            pocketColor,
+            pocketOffsetX,
+            pocketOffsetY,
+            logoOffsetX,
+            logoOffsetY,
           },
         }),
       });
@@ -499,6 +509,11 @@ export function ChatConfigurator() {
         if (changes.collarColor !== undefined) setCollarColor(changes.collarColor);
         if (changes.sleeveColor !== undefined) setSleeveColor(changes.sleeveColor);
         if (changes.hasPocket !== undefined) setHasPocket(Boolean(changes.hasPocket));
+        if (changes.pocketColor !== undefined) setPocketColor(changes.pocketColor);
+        if (changes.pocketOffsetX !== undefined) setPocketOffsetX(changes.pocketOffsetX);
+        if (changes.pocketOffsetY !== undefined) setPocketOffsetY(changes.pocketOffsetY);
+        if (changes.logoOffsetX !== undefined) setLogoOffsetX(changes.logoOffsetX);
+        if (changes.logoOffsetY !== undefined) setLogoOffsetY(changes.logoOffsetY);
         if (changes.quantity) setQuantity(changes.quantity);
         if (changes.sizeDistribution) setSizeDistribution(changes.sizeDistribution);
         if (changes.logoPosition) setLogoPosition(changes.logoPosition);
@@ -1035,6 +1050,8 @@ export function ChatConfigurator() {
           ? "Logo no Peito Esquerdo"
           : logoPosition === "CENTRO_FRONTAL"
           ? "Logo no Centro Frontal"
+          : logoPosition === "BOLSO"
+          ? "Logo no Bolso"
           : logoPosition === "COSTAS"
           ? "Logo nas Costas"
           : logoPosition === "MANGA"
@@ -1532,6 +1549,8 @@ export function ChatConfigurator() {
                         ? "Peito Esquerdo (Bordado/DTF)"
                         : logoPosition === "CENTRO_FRONTAL"
                         ? "Centro Frontal (Silk/DTF)"
+                        : logoPosition === "BOLSO"
+                        ? "Bolso no Peito (Bordado/DTF)"
                         : logoPosition === "COSTAS"
                         ? "Costas (Centro Amplo)"
                         : logoPosition === "MANGA"
@@ -1773,6 +1792,14 @@ export function ChatConfigurator() {
           logoScale={logoScale}
           onLogoScaleChange={setLogoScale}
           hasPocket={hasPocket}
+          pocketColor={pocketColor}
+          pocketOffsetX={pocketOffsetX}
+          pocketOffsetY={pocketOffsetY}
+          onPocketOffsetChange={(x, y) => { setPocketOffsetX(x); setPocketOffsetY(y); }}
+          onPocketColorChange={setPocketColor}
+          logoOffsetX={logoOffsetX}
+          logoOffsetY={logoOffsetY}
+          onLogoOffsetChange={(x, y) => { setLogoOffsetX(x); setLogoOffsetY(y); }}
         />
 
         {/* Resumo Rápido dos Detalhes Técnicos */}
@@ -1834,6 +1861,12 @@ export function ChatConfigurator() {
                 ? "Peito Esquerdo (Bordado/DTF)"
                 : logoPosition === "CENTRO_FRONTAL"
                 ? (viewSide === "BACK" ? "Costas (Centro Amplo)" : "Centro Frontal (Silk/DTF)")
+                : logoPosition === "BOLSO"
+                ? "Bolso no Peito (Bordado/DTF)"
+                : logoPosition === "COSTAS"
+                ? "Costas (Centro Amplo)"
+                : logoPosition === "MANGA"
+                ? "Manga Lateral (Bordado/DTF)"
                 : "Peito Direito (Bordado/DTF)"}
               {logoUrl ? ` • Escala ${Math.round(logoScale * 100)}%` : ""}
             </span>
@@ -2313,6 +2346,8 @@ export function ChatConfigurator() {
               ? "Peito Esquerdo"
               : logoPosition === "CENTRO_FRONTAL"
               ? "Centro Frontal"
+              : logoPosition === "BOLSO"
+              ? "Bolso no Peito"
               : logoPosition === "COSTAS"
               ? "Costas (Amplo)"
               : logoPosition === "MANGA"

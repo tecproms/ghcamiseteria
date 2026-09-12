@@ -87,8 +87,13 @@ interface StructuredCommand {
     quantity?: number;
     sizeDistribution?: Record<string, number>;
     logoUrl?: string | null;
-    logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA";
+    logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA" | "BOLSO";
     logoScale?: number;
+    pocketColor?: string | null;
+    pocketOffsetX?: number;
+    pocketOffsetY?: number;
+    logoOffsetX?: number;
+    logoOffsetY?: number;
     customText?: string;
     customTextPosition?: "FRONT" | "BACK";
     customNumber?: string;
@@ -116,9 +121,14 @@ interface InboundProject {
   collarColor?: { name: string; hex: string } | null;
   sleeveColor?: { name: string; hex: string } | null;
   hasPocket?: boolean;
+  pocketColor?: string | null;
+  pocketOffsetX?: number;
+  pocketOffsetY?: number;
+  logoOffsetX?: number;
+  logoOffsetY?: number;
   sizeDistribution?: Record<string, number>;
   logoUrl?: string | null;
-  logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA";
+  logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA" | "BOLSO";
   logoScale?: number;
   quantity?: number;
   customText?: string | null;
@@ -158,6 +168,11 @@ export async function POST(req: Request) {
       collarColor: rawProject.collarColor || null,
       sleeveColor: rawProject.sleeveColor || null,
       hasPocket: Boolean(rawProject.hasPocket),
+      pocketColor: (rawProject.pocketColor as string) || null,
+      pocketOffsetX: typeof rawProject.pocketOffsetX === "number" ? rawProject.pocketOffsetX : 0,
+      pocketOffsetY: typeof rawProject.pocketOffsetY === "number" ? rawProject.pocketOffsetY : 0,
+      logoOffsetX: typeof rawProject.logoOffsetX === "number" ? rawProject.logoOffsetX : 0,
+      logoOffsetY: typeof rawProject.logoOffsetY === "number" ? rawProject.logoOffsetY : 0,
       sizeDistribution: rawProject.sizeDistribution || { P: 4, M: 8, G: 6, GG: 2 },
       logoUrl: rawProject.logoUrl || null,
       logoPosition: rawProject.logoPosition || "PEITO_ESQUERDO",
@@ -257,9 +272,11 @@ export async function POST(req: Request) {
     // 1. Verificação de Produtos Inexistentes (Não inventar fora do catálogo)
     const unavailableItems = [
       "jaqueta", "jeans", "moletom", "agasalho", "casaco", "blusao", "bermuda", "calca", "calça",
-      "bone", "boné", "chapeu", "avental", "colete", "regata", "cueca", "meia",
+      "bone", "boné", "chapeu", "avental", "colete", "regata", "cueca",
     ];
-    const foundUnavailable = unavailableItems.find((item) => lower.includes(item));
+    // "meia" check separado para evitar falso positivo com "meia malha"
+    const hasMeiaAlone = lower.includes("meia") && !lower.includes("meia malha");
+    const foundUnavailable = unavailableItems.find((item) => lower.includes(item)) || (hasMeiaAlone ? "meia" : null);
     if (foundUnavailable) {
       const politeRefusal = `Na **GH Camiseteria** somos indústria especializada na confecção de **Camisetas Tradicionais**, **Camisas Polo Empresariais em Piquet** e **Camisas Manga Longa**.
 
@@ -436,8 +453,18 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Defini o acabamento em **Gola Polo com Botões**.");
       }
 
-      // 5.5. Bolso no Peito
-      if (
+      // 5.5. Bolso no Peito e Logo no Bolso
+      const isLogoOnPocket =
+        (lower.includes("logo") || lower.includes("estampa") || lower.includes("arte") || lower.includes("marca")) &&
+        lower.includes("bolso");
+
+      if (isLogoOnPocket) {
+        action = "UPDATE_LOGO";
+        changes.hasPocket = true;
+        changes.logoPosition = "BOLSO";
+        changes.viewSide = "FRONT";
+        replyParts.push("Posicionei a sua logomarca diretamente sobre o **Bolso no Peito**!");
+      } else if (
         lower.includes("com bolso") ||
         lower.includes("adicione um bolso") ||
         lower.includes("adicionar bolso") ||
@@ -448,7 +475,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         lower.includes("adicionou bolso") ||
         lower.includes("bota bolso") ||
         lower.includes("com um bolso") ||
-        (lower.includes("bolso") && !lower.includes("sem bolso") && !lower.includes("remover bolso") && !lower.includes("tirar bolso"))
+        (lower.includes("bolso") && !lower.includes("sem bolso") && !lower.includes("remover bolso") && !lower.includes("tirar bolso") && !lower.includes("cor do bolso"))
       ) {
         action = "UPDATE_UNIFORM";
         changes.hasPocket = true;
@@ -463,6 +490,18 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         action = "UPDATE_UNIFORM";
         changes.hasPocket = false;
         replyParts.push("Removi o bolso frontal do uniforme.");
+      }
+
+      // 5.6. Cor do Bolso
+      if (lower.includes("bolso") && (lower.includes("cor") || lower.includes("tom") || lower.includes("mudar") || lower.includes("trocar"))) {
+        for (const catColor of CATALOG_COLORS) {
+          if (catColor.aliases.some((alias) => lower.includes(alias))) {
+            changes.pocketColor = catColor.hex;
+            changes.hasPocket = true;
+            replyParts.push(`Defini a cor do **Bolso** para **${catColor.name}**.`);
+            break;
+          }
+        }
       }
 
       // 6. Quantidade
@@ -535,7 +574,53 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         lower.includes("sem logo");
 
       if (!isRemovingLogo) {
-        if (lower.includes("peito esquerdo") || lower.includes("lado esquerdo") || lower.includes("coracao") || lower.includes("coração")) {
+        const currentLogoOffsetY = typeof currentProject.logoOffsetY === "number" ? currentProject.logoOffsetY : 0;
+        const currentLogoOffsetX = typeof currentProject.logoOffsetX === "number" ? currentProject.logoOffsetX : 0;
+        const currentPocketOffsetY = typeof currentProject.pocketOffsetY === "number" ? currentProject.pocketOffsetY : 0;
+        const currentPocketOffsetX = typeof currentProject.pocketOffsetX === "number" ? currentProject.pocketOffsetX : 0;
+
+        if (lower.includes("logo mais pra baixo") || lower.includes("desce a logo") || lower.includes("abaixa a logo") || (lower.includes("mais pra baixo") && !lower.includes("bolso"))) {
+          action = "UPDATE_LOGO";
+          changes.logoOffsetY = currentLogoOffsetY + 0.04;
+          replyParts.push("Movi a logomarca um pouco mais para **baixo** no manequim.");
+        } else if (lower.includes("logo mais pra cima") || lower.includes("sobe a logo") || lower.includes("levanta a logo") || (lower.includes("mais pra cima") && !lower.includes("bolso"))) {
+          action = "UPDATE_LOGO";
+          changes.logoOffsetY = currentLogoOffsetY - 0.04;
+          replyParts.push("Movi a logomarca um pouco mais para **cima** no manequim.");
+        } else if (lower.includes("logo mais pra esquerda") || lower.includes("logo pra esquerda")) {
+          action = "UPDATE_LOGO";
+          changes.logoOffsetX = currentLogoOffsetX - 0.04;
+          replyParts.push("Movi a logomarca um pouco mais para a **esquerda** no manequim.");
+        } else if (lower.includes("logo mais pra direita") || lower.includes("logo pra direita")) {
+          action = "UPDATE_LOGO";
+          changes.logoOffsetX = currentLogoOffsetX + 0.04;
+          replyParts.push("Movi a logomarca um pouco mais para a **direita** no manequim.");
+        } else if (lower.includes("bolso mais pra baixo") || lower.includes("desce o bolso") || lower.includes("abaixa o bolso")) {
+          action = "UPDATE_UNIFORM";
+          changes.pocketOffsetY = currentPocketOffsetY + 0.04;
+          replyParts.push("Movi o bolso um pouco mais para **baixo** no manequim.");
+        } else if (lower.includes("bolso mais pra cima") || lower.includes("sobe o bolso") || lower.includes("levanta o bolso")) {
+          action = "UPDATE_UNIFORM";
+          changes.pocketOffsetY = currentPocketOffsetY - 0.04;
+          replyParts.push("Movi o bolso um pouco mais para **cima** no manequim.");
+        } else if (lower.includes("bolso mais pra esquerda") || lower.includes("bolso pra esquerda")) {
+          action = "UPDATE_UNIFORM";
+          changes.pocketOffsetX = currentPocketOffsetX - 0.04;
+          replyParts.push("Movi o bolso um pouco mais para a **esquerda** no manequim.");
+        } else if (lower.includes("bolso mais pra direita") || lower.includes("bolso pra direita")) {
+          action = "UPDATE_UNIFORM";
+          changes.pocketOffsetX = currentPocketOffsetX + 0.04;
+          replyParts.push("Movi o bolso um pouco mais para a **direita** no manequim.");
+        } else if (lower.includes("posicao da logo") || lower.includes("posiçao da logo") || lower.includes("posisao da logo") || lower.includes("onde colocar a logo") || lower.includes("mudar posicao")) {
+          action = "UPDATE_LOGO";
+          replyParts.push("Você pode escolher a posição da sua marca: **Peito Esquerdo**, **Centro Frontal**, **Bolso no Peito**, **Peito Direito**, **Costas** ou **Manga Lateral**. Você também pode ajustar a posição livremente com as setas no manequim!");
+        } else if (lower.includes("no bolso") || lower.includes("sobre o bolso") || lower.includes("dentro do bolso")) {
+          action = "ADD_LOGO";
+          changes.hasPocket = true;
+          changes.logoPosition = "BOLSO";
+          changes.viewSide = "FRONT";
+          replyParts.push("Posicionei sua marca diretamente no **Bolso no Peito**.");
+        } else if (lower.includes("peito esquerdo") || lower.includes("lado esquerdo") || lower.includes("coracao") || lower.includes("coração")) {
           action = "ADD_LOGO";
           changes.logoPosition = "PEITO_ESQUERDO";
           changes.viewSide = "FRONT";
@@ -699,6 +784,11 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       customNumberPosition: updatedCustomNumberPosition,
       viewSide: updatedViewSide,
       hasPocket: validChanges.hasPocket !== undefined ? validChanges.hasPocket : Boolean(currentProject.hasPocket),
+      pocketColor: validChanges.pocketColor !== undefined ? validChanges.pocketColor : currentProject.pocketColor,
+      pocketOffsetX: validChanges.pocketOffsetX !== undefined ? validChanges.pocketOffsetX : (currentProject.pocketOffsetX || 0),
+      pocketOffsetY: validChanges.pocketOffsetY !== undefined ? validChanges.pocketOffsetY : (currentProject.pocketOffsetY || 0),
+      logoOffsetX: validChanges.logoOffsetX !== undefined ? validChanges.logoOffsetX : (currentProject.logoOffsetX || 0),
+      logoOffsetY: validChanges.logoOffsetY !== undefined ? validChanges.logoOffsetY : (currentProject.logoOffsetY || 0),
       sizeDistribution: validChanges.sizeDistribution || currentProject.sizeDistribution,
       purpose: validChanges.purpose || currentProject.purpose || null,
       fabric: validChanges.fabric || currentProject.fabric || null,
@@ -751,6 +841,8 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
             ? "Logo peito direito"
             : mergedProject.logoPosition === "CENTRO_FRONTAL"
             ? "Logo centro do peito"
+            : mergedProject.logoPosition === "BOLSO"
+            ? "Logo no bolso do peito"
             : "Logo peito esquerdo";
         frontCustomizations.push({
           id: "logo-front",
@@ -904,6 +996,11 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         customNumberPosition: updatedCustomNumberPosition,
         viewSide: updatedViewSide,
         hasPocket: mergedProject.hasPocket || false,
+        pocketColor: mergedProject.pocketColor || null,
+        pocketOffsetX: mergedProject.pocketOffsetX || 0,
+        pocketOffsetY: mergedProject.pocketOffsetY || 0,
+        logoOffsetX: mergedProject.logoOffsetX || 0,
+        logoOffsetY: mergedProject.logoOffsetY || 0,
         sizeDistribution: mergedProject.sizeDistribution,
         purpose: mergedProject.purpose,
         fabric: mergedProject.fabric,

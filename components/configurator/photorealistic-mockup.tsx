@@ -12,17 +12,25 @@ interface PhotorealisticMockupProps {
   modelType: MockupModelType;
   color: { name: string; hex: string };
   logoUrl?: string | null;
-  logoPosition?: LogoPositionType | "COSTAS" | "MANGA";
+  logoPosition?: LogoPositionType | "COSTAS" | "MANGA" | "BOLSO";
   customText?: string;
   customTextPosition?: "FRONT" | "BACK";
   customNumber?: string;
   customNumberPosition?: "FRONT" | "BACK";
   className?: string;
   hasPocket?: boolean;
+  pocketColor?: string | null;
+  pocketOffsetX?: number;
+  pocketOffsetY?: number;
+  onPocketOffsetChange?: (x: number, y: number) => void;
+  onPocketColorChange?: (hex: string) => void;
   viewSide?: MockupViewSide;
   onViewSideChange?: (side: MockupViewSide) => void;
   logoScale?: number;
   onLogoScaleChange?: (scale: number) => void;
+  logoOffsetX?: number;
+  logoOffsetY?: number;
+  onLogoOffsetChange?: (x: number, y: number) => void;
   onImageRendered?: (dataUrl: string) => void;
 }
 
@@ -123,10 +131,18 @@ export function PhotorealisticMockup({
   customNumberPosition = "BACK",
   className = "",
   hasPocket = false,
+  pocketColor = null,
+  pocketOffsetX = 0,
+  pocketOffsetY = 0,
+  onPocketOffsetChange,
+  onPocketColorChange,
   viewSide,
   onViewSideChange,
   logoScale,
   onLogoScaleChange,
+  logoOffsetX = 0,
+  logoOffsetY = 0,
+  onLogoOffsetChange,
   onImageRendered,
 }: PhotorealisticMockupProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -369,8 +385,10 @@ export function PhotorealisticMockup({
 
       const drawPocket = () => {
         if (!ctx || !hasPocket || currentView !== "FRONT") return;
-        const pX = size * (modelType === "POLO" ? 0.60 : 0.58);
-        const pY = size * (modelType === "POLO" ? 0.38 : 0.35);
+        const basePX = size * (modelType === "POLO" ? 0.60 : 0.58);
+        const basePY = size * (modelType === "POLO" ? 0.38 : 0.35);
+        const pX = basePX + (pocketOffsetX * size);
+        const pY = basePY + (pocketOffsetY * size);
         const pW = 108;
         const pH = 124;
         const r = 16;
@@ -386,8 +404,17 @@ export function PhotorealisticMockup({
         ctx.closePath();
 
         const isDark = hexToRgb(color.hex).r < 100 && hexToRgb(color.hex).g < 100;
-        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)";
-        ctx.fill();
+
+        if (pocketColor) {
+          // Cor personalizada do bolso
+          ctx.fillStyle = pocketColor;
+          ctx.globalAlpha = 0.85;
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+        } else {
+          ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)";
+          ctx.fill();
+        }
 
         ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.28)" : "rgba(0, 0, 0, 0.22)";
         ctx.lineWidth = 1.5;
@@ -414,15 +441,28 @@ export function PhotorealisticMockup({
         logoImg.onload = () => {
           if (isCancelled || !ctx) return;
 
-          const maxW = size * coords.maxWidthPct * currentScale;
+          let centerX: number;
+          let centerY: number;
+          let maxW: number;
+
+          if (logoPosition === "BOLSO" && hasPocket && currentView === "FRONT") {
+            // Logo dentro do bolso: posiciona no centro do bolso com offsets do bolso e da logo
+            const basePX = size * (modelType === "POLO" ? 0.60 : 0.58);
+            const basePY = size * (modelType === "POLO" ? 0.38 : 0.35);
+            centerX = basePX + (pocketOffsetX * size) + (logoOffsetX * size);
+            centerY = basePY + (pocketOffsetY * size) + 10 + (logoOffsetY * size); // +10 para baixo da costura
+            maxW = 80 * currentScale; // Cabe dentro do bolso (108px de largura)
+          } else {
+            maxW = size * coords.maxWidthPct * currentScale;
+            const rawXPct = coords.xPct;
+            const finalXPct = isRightSleeve ? 1 - rawXPct : rawXPct;
+            centerX = size * finalXPct + (logoOffsetX * size);
+            centerY = size * coords.yPct + (logoOffsetY * size);
+          }
+
           const aspect = logoImg.naturalWidth / (logoImg.naturalHeight || 1);
           const w = maxW;
           const h = maxW / aspect;
-
-          const rawXPct = coords.xPct;
-          const finalXPct = isRightSleeve ? 1 - rawXPct : rawXPct;
-          const centerX = size * finalXPct;
-          const centerY = size * coords.yPct;
 
           ctx.save();
           // Efeito de estamparia real (leve mesclagem com tecido)
@@ -471,6 +511,11 @@ export function PhotorealisticMockup({
     customNumber,
     customNumberPosition,
     hasPocket,
+    pocketColor,
+    pocketOffsetX,
+    pocketOffsetY,
+    logoOffsetX,
+    logoOffsetY,
     onImageRendered,
   ]);
 
@@ -536,10 +581,10 @@ export function PhotorealisticMockup({
           </Button>
         )}
 
-        {/* Controle de Escala da Logo (Reduzir / Aumentar) */}
+        {/* Controle de Escala e Posição da Logo */}
         {logoUrl && !loading && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
-            <span className="font-semibold text-slate-700 dark:text-zinc-300">Tamanho da Logo:</span>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
+            <span className="font-semibold text-slate-700 dark:text-zinc-300">Logo:</span>
             <button
               type="button"
               onClick={() => handleScaleChange(currentScale - 0.15)}
@@ -548,7 +593,7 @@ export function PhotorealisticMockup({
             >
               -
             </button>
-            <span className="font-mono font-bold min-w-9 text-center text-slate-800 dark:text-zinc-200">
+            <span className="font-mono font-bold min-w-8 text-center text-slate-800 dark:text-zinc-200">
               {Math.round(currentScale * 100)}%
             </span>
             <button
@@ -559,9 +604,91 @@ export function PhotorealisticMockup({
             >
               +
             </button>
+            <div className="w-px h-4 bg-slate-300 dark:bg-zinc-600 mx-0.5" />
+            <button
+              type="button"
+              onClick={() => onLogoOffsetChange?.(logoOffsetX, logoOffsetY - 0.02)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover logo para cima"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              onClick={() => onLogoOffsetChange?.(logoOffsetX, logoOffsetY + 0.02)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover logo para baixo"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              onClick={() => onLogoOffsetChange?.(logoOffsetX - 0.02, logoOffsetY)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover logo para esquerda"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              onClick={() => onLogoOffsetChange?.(logoOffsetX + 0.02, logoOffsetY)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover logo para direita"
+            >
+              ▶
+            </button>
           </div>
         )}
 
+        {/* Controles do Bolso (Posição + Cor) */}
+        {hasPocket && !loading && currentView === "FRONT" && (
+          <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
+            <span className="font-semibold text-slate-700 dark:text-zinc-300">Bolso:</span>
+            <button
+              type="button"
+              onClick={() => onPocketOffsetChange?.(pocketOffsetX, pocketOffsetY - 0.02)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover bolso para cima"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              onClick={() => onPocketOffsetChange?.(pocketOffsetX, pocketOffsetY + 0.02)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover bolso para baixo"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              onClick={() => onPocketOffsetChange?.(pocketOffsetX - 0.02, pocketOffsetY)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover bolso para esquerda"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              onClick={() => onPocketOffsetChange?.(pocketOffsetX + 0.02, pocketOffsetY)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Mover bolso para direita"
+            >
+              ▶
+            </button>
+            <div className="w-px h-4 bg-slate-300 dark:bg-zinc-600 mx-1" />
+            <label className="flex items-center gap-1 cursor-pointer" title="Cor do bolso">
+              <span className="text-[10px] text-slate-500 dark:text-zinc-400">Cor:</span>
+              <input
+                type="color"
+                value={pocketColor || color.hex}
+                onChange={(e) => onPocketColorChange?.(e.target.value)}
+                className="w-5 h-5 rounded-full border border-slate-300 dark:border-zinc-600 cursor-pointer p-0"
+                style={{ WebkitAppearance: "none", appearance: "none" }}
+              />
+            </label>
+          </div>
+        )}
         {/* Loading Spinner */}
         {loading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xs gap-2">
