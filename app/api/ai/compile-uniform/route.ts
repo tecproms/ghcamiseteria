@@ -40,7 +40,7 @@ export async function POST(req: Request) {
             Authorization: `Bearer ${groqApiKey}`,
           },
           body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
+            model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
             temperature: 0.3,
             messages: [
               {
