@@ -12,6 +12,8 @@ import {
   RefreshCw,
   Coins,
   Loader2,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +21,7 @@ import {
   PhotorealisticMockup,
   type MockupModelType,
   type LogoPositionType,
+  type MockupViewSide,
 } from "@/components/configurator/photorealistic-mockup";
 
 interface ChatMessage {
@@ -27,12 +30,17 @@ interface ChatMessage {
   text: string;
   options?: Array<{ label: string; action: () => void }>;
   isSummary?: boolean;
+  showSizeGrid?: boolean;
 }
 
 interface QuoteSummaryData {
   modelName: string;
   colorName: string;
   colorHex: string;
+  collarType?: string;
+  collarColorName?: string;
+  sleeveColorName?: string;
+  sizeBreakdown?: string;
   logoPosition: string;
   quantity: number;
   unitPrice: number;
@@ -44,18 +52,40 @@ interface QuoteSummaryData {
 
 const AVAILABLE_COLORS = [
   { name: "Branco Neve", hex: "#FFFFFF" },
-  { name: "Preto Clássico", hex: "#0F172A" },
+  { name: "Preto Clássico", hex: "#111827" },
+  { name: "Grafite Chumbo", hex: "#374151" },
+  { name: "Cinza Mescla", hex: "#9CA3AF" },
   { name: "Azul Marinho", hex: "#1E3A8A" },
-  { name: "Vermelho Rubi", hex: "#DC2626" },
-  { name: "Verde Militar", hex: "#14532D" },
-  { name: "Grafite Chumbo", hex: "#334155" },
-  { name: "Amarelo Ouro", hex: "#D97706" },
+  { name: "Azul Royal", hex: "#1D4ED8" },
+  { name: "Azul Turquesa", hex: "#06B6D4" },
+  { name: "Azul Celeste", hex: "#38BDF8" },
+  { name: "Vermelho Ferrari", hex: "#DC2626" },
   { name: "Vinho Bordô", hex: "#881337" },
+  { name: "Coral Salmão", hex: "#F87171" },
+  { name: "Laranja Industrial", hex: "#EA580C" },
+  { name: "Amarelo Ouro", hex: "#D97706" },
+  { name: "Amarelo Canário", hex: "#FDE047" },
+  { name: "Verde Bandeira", hex: "#15803D" },
+  { name: "Verde Militar", hex: "#3F6212" },
+  { name: "Verde Petróleo", hex: "#0F766E" },
+  { name: "Verde Limão", hex: "#84CC16" },
+  { name: "Rosa Bebê", hex: "#F472B6" },
+  { name: "Rosa Pink", hex: "#DB2777" },
+  { name: "Roxo Imperial", hex: "#7C3AED" },
+  { name: "Lilás / Lavanda", hex: "#A855F7" },
+  { name: "Bege / Khaki", hex: "#D4B996" },
+  { name: "Marrom Café", hex: "#78350F" },
 ];
 
 export function ChatConfigurator() {
   // Estado do Projeto
   const [modelType, setModelType] = useState<MockupModelType>("TRADITIONAL");
+  const [viewSide, setViewSide] = useState<MockupViewSide>("FRONT");
+  const [logoScale, setLogoScale] = useState<number>(1.0);
+  const [collarType, setCollarType] = useState<string>("Gola Redonda (Careca)");
+  const [collarColor, setCollarColor] = useState<{ name: string; hex: string } | null>(null);
+  const [sleeveColor, setSleeveColor] = useState<{ name: string; hex: string } | null>(null);
+
   const [color, setColor] = useState<{ name: string; hex: string }>({
     name: "Branco Neve",
     hex: "#FFFFFF",
@@ -63,6 +93,15 @@ export function ChatConfigurator() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPosition, setLogoPosition] = useState<LogoPositionType>("PEITO_ESQUERDO");
   const [quantity, setQuantity] = useState<number>(20);
+  const [sizeDistribution, setSizeDistribution] = useState<Record<string, number>>({
+    PP: 0,
+    P: 4,
+    M: 8,
+    G: 6,
+    GG: 2,
+    XG: 0,
+    XXG: 0,
+  });
   const [customText, setCustomText] = useState<string>("");
 
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummaryData | null>(null);
@@ -71,6 +110,7 @@ export function ChatConfigurator() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   // Histórico de Mensagens do Chat
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -107,69 +147,200 @@ export function ChatConfigurator() {
     setTimeout(() => {
       addMessage(
         "assistant",
-        `Excelente escolha! O modelo **${label}** tem caimento anatômico e alta durabilidade.\n\nAgora, **qual cor principal** você prefere para o tecido?`,
-        AVAILABLE_COLORS.map((c) => ({
-          label: c.name,
-          action: () => handleSelectColor(c),
-        }))
-      );
-    }, 400);
-  };
-
-  // Passo 2: Selecionar Cor
-  const handleSelectColor = (selected: { name: string; hex: string }) => {
-    setColor(selected);
-    addMessage("user", `Prefiro a cor ${selected.name}.`);
-
-    setTimeout(() => {
-      addMessage(
-        "assistant",
-        `Perfeito! O tingimento fotográfico na cor **${selected.name}** já está visível no mockup ao lado.\n\nAgora vamos aplicar sua marca! Você pode **anexar sua logomarca** abaixo ou escolher onde gostaria de posicioná-la:`,
+        `Excelente escolha! O modelo **${label}** tem caimento anatômico e alta durabilidade.\n\nQual **tipo de gola** você prefere para o acabamento?`,
         [
           {
-            label: "📎 Enviar Logomarca",
-            action: () => fileInputRef.current?.click(),
+            label: "⚪ Gola Redonda (Careca)",
+            action: () => handleSelectCollarType("Gola Redonda (Careca)"),
           },
           {
-            label: "📍 Peito Esquerdo (Padrão)",
-            action: () => handleSelectPosition("PEITO_ESQUERDO", "Peito Esquerdo"),
+            label: "📐 Gola V Esportiva",
+            action: () => handleSelectCollarType("Gola V Esportiva"),
           },
           {
-            label: "📍 Centro do Peito (Grande)",
-            action: () => handleSelectPosition("CENTRO_FRONTAL", "Centro do Peito"),
-          },
-          {
-            label: "📍 Peito Direito",
-            action: () => handleSelectPosition("PEITO_DIREITO", "Peito Direito"),
+            label: "👔 Gola Polo com Botões",
+            action: () => handleSelectCollarType("Gola Polo com Botões"),
           },
         ]
       );
     }, 400);
   };
 
+  // Passo 1.5: Tipo de Gola
+  const handleSelectCollarType = (selectedCollar: string) => {
+    setCollarType(selectedCollar);
+    addMessage("user", `Prefiro acabamento com ${selectedCollar}.`);
+
+    setTimeout(() => {
+      addMessage(
+        "assistant",
+        `Perfeito! Acabamento em **${selectedCollar}** registrado.\n\nAgora, **qual cor principal** você prefere para o tecido? Temos 24 cores clássicas ou você pode escolher qualquer tom livremente:`,
+        [
+          ...AVAILABLE_COLORS.map((c) => ({
+            label: c.name,
+            action: () => handleSelectColor(c),
+          })),
+          {
+            label: "🎨 Escolher Cor Livre (Paleta Hex)",
+            action: () => colorInputRef.current?.click(),
+          },
+        ]
+      );
+    }, 400);
+  };
+
+  // Passo 2: Selecionar Cor Principal
+  const handleSelectColor = (selected: { name: string; hex: string }) => {
+    setColor(selected);
+    addMessage("user", `Prefiro a cor principal ${selected.name}.`);
+
+    setTimeout(() => {
+      addMessage(
+        "assistant",
+        `Perfeito! O tingimento fotográfico na cor **${selected.name}** já está visível no mockup ao lado.\n\nVocê gostaria de manter gola e mangas no mesmo tom ou configurar detalhes contrastantes?`,
+        [
+          {
+            label: "✅ Manter Tudo Monocromático",
+            action: () => handlePromptLogoStep(),
+          },
+          {
+            label: "👔 Gola com Cor Contrastante",
+            action: () => handleSelectContrastCollar(),
+          },
+          {
+            label: "📐 Mangas com Cor Contrastante",
+            action: () => handleSelectContrastSleeves(),
+          },
+        ]
+      );
+    }, 400);
+  };
+
+  const handleSelectContrastCollar = () => {
+    addMessage("user", "Quero personalizar a cor da gola.");
+    setTimeout(() => {
+      addMessage(
+        "assistant",
+        "Escolha a cor de destaque para a **gola**:",
+        AVAILABLE_COLORS.slice(0, 8).map((c) => ({
+          label: c.name,
+          action: () => {
+            setCollarColor(c);
+            addMessage("user", `Gola na cor ${c.name}.`);
+            setTimeout(() => handlePromptLogoStep(), 300);
+          },
+        }))
+      );
+    }, 300);
+  };
+
+  const handleSelectContrastSleeves = () => {
+    addMessage("user", "Quero personalizar a cor das mangas.");
+    setTimeout(() => {
+      addMessage(
+        "assistant",
+        "Escolha a cor de destaque para as **mangas**:",
+        AVAILABLE_COLORS.slice(0, 8).map((c) => ({
+          label: c.name,
+          action: () => {
+            setSleeveColor(c);
+            addMessage("user", `Mangas na cor ${c.name}.`);
+            setTimeout(() => handlePromptLogoStep(), 300);
+          },
+        }))
+      );
+    }, 300);
+  };
+
+  const handlePromptLogoStep = () => {
+    addMessage(
+      "assistant",
+      `Tudo registrado! Agora vamos aplicar sua marca! Você pode **anexar sua logomarca** abaixo ou escolher onde gostaria de posicioná-la (inclusive nas costas ou manga):`,
+      [
+        {
+          label: "📎 Enviar Logomarca",
+          action: () => fileInputRef.current?.click(),
+        },
+        {
+          label: "📍 Peito Esquerdo (Padrão)",
+          action: () => handleSelectPosition("PEITO_ESQUERDO", "Peito Esquerdo", "FRONT"),
+        },
+        {
+          label: "📍 Centro do Peito (Grande)",
+          action: () => handleSelectPosition("CENTRO_FRONTAL", "Centro do Peito", "FRONT"),
+        },
+        {
+          label: "🔄 Costas (Estampa Ampla)",
+          action: () => handleSelectPosition("CENTRO_FRONTAL", "Costas (Centro)", "BACK"),
+        },
+        {
+          label: "📐 Manga Lateral",
+          action: () => handleSelectPosition("PEITO_ESQUERDO", "Manga Lateral", "SLEEVE"),
+        },
+      ]
+    );
+  };
+
   // Passo 3: Posição da Logo
-  const handleSelectPosition = (pos: LogoPositionType, label: string) => {
+  const handleSelectPosition = (
+    pos: LogoPositionType,
+    label: string,
+    targetView: MockupViewSide = "FRONT"
+  ) => {
     setLogoPosition(pos);
+    setViewSide(targetView);
     addMessage("user", `Quero a aplicação no ${label}.`);
 
     setTimeout(() => {
       addMessage(
         "assistant",
-        `Marcado no **${label}**! E **quantas peças** você planeja produzir? Lembrando que temos descontos progressivos por volume (a partir de 20 peças já tem 10% OFF!).`,
+        `Marcado no **${label}**! O manequim fotográfico virou para mostrar a posição exata. 🎯\n\nAgora defina as **quantidades e tamanhos** que sua equipe precisa. Você pode ajustar cada tamanho na grade abaixo ou escolher uma quantidade rápida:`,
         [
           { label: "10 peças", action: () => handleSelectQuantity(10) },
           { label: "20 peças (10% OFF)", action: () => handleSelectQuantity(20) },
           { label: "50 peças (15% OFF)", action: () => handleSelectQuantity(50) },
           { label: "100+ peças (Atacado 20% OFF)", action: () => handleSelectQuantity(100) },
-        ]
+        ],
+        false,
+        true // Exibir grade interativa de tamanhos
       );
     }, 400);
+  };
+
+  // Atualizar distribuição de tamanhos
+  const handleUpdateSize = (sz: string, delta: number) => {
+    setSizeDistribution((prev) => {
+      const cur = prev[sz] || 0;
+      const next = Math.max(0, cur + delta);
+      const updated = { ...prev, [sz]: next };
+      const newTotal = Object.values(updated).reduce((a, b) => a + b, 0);
+      setQuantity(newTotal);
+      return updated;
+    });
+  };
+
+  // Confirmar grade de tamanhos
+  const handleConfirmSizes = () => {
+    const total = Object.values(sizeDistribution).reduce((a, b) => a + b, 0);
+    if (total < 1) return;
+    const parts = Object.entries(sizeDistribution)
+      .filter(([, q]) => q > 0)
+      .map(([sz, q]) => `${q}x ${sz}`);
+    addMessage("user", `Grade definida: ${parts.join(", ")} (Total: ${total} unidades).`);
+    triggerCompilation(total);
   };
 
   // Passo 4: Quantidade e Compilação Final
   const handleSelectQuantity = (qty: number) => {
     setQuantity(qty);
-    addMessage("user", `Precisamos de ${qty} unidades.`);
+    const p = Math.round(qty * 0.2);
+    const m = Math.round(qty * 0.4);
+    const g = Math.round(qty * 0.3);
+    const gg = Math.max(0, qty - (p + m + g));
+    const dist = { PP: 0, P: p, M: m, G: g, GG: gg, XG: 0, XXG: 0 };
+    setSizeDistribution(dist);
+
+    addMessage("user", `Precisamos de ${qty} unidades (Grade sortida: ${p} P, ${m} M, ${g} G, ${gg} GG).`);
     triggerCompilation(qty);
   };
 
@@ -229,8 +400,13 @@ export function ChatConfigurator() {
           currentProject: {
             model: modelType,
             color,
+            collarType,
+            collarColor,
+            sleeveColor,
+            sizeDistribution,
             logoUrl,
             logoPosition,
+            logoScale,
             quantity,
             customText,
           },
@@ -241,6 +417,7 @@ export function ChatConfigurator() {
       if (data.success) {
         if (data.updatedProject?.model) setModelType(data.updatedProject.model);
         if (data.updatedProject?.color) setColor(data.updatedProject.color);
+        if (data.updatedProject?.collarType) setCollarType(data.updatedProject.collarType);
         if (data.updatedProject?.logoPosition) setLogoPosition(data.updatedProject.logoPosition);
         if (data.updatedProject?.quantity) setQuantity(data.updatedProject.quantity);
 
@@ -272,14 +449,19 @@ export function ChatConfigurator() {
           messages: [
             {
               role: "user",
-              content: `Compilar orçamento final para ${activeQty} peças de ${modelType} na cor ${color.name} com logo no ${logoPosition}.`,
+              content: `Compilar orçamento final para ${activeQty} peças de ${modelType} na cor ${color.name} com acabamento em ${collarType} e logo no ${logoPosition}.`,
             },
           ],
           currentProject: {
             model: modelType,
             color,
+            collarType,
+            collarColor,
+            sleeveColor,
+            sizeDistribution,
             logoUrl,
             logoPosition,
+            logoScale,
             quantity: activeQty,
             customText,
           },
@@ -307,7 +489,8 @@ export function ChatConfigurator() {
     role: "assistant" | "user",
     text: string,
     options?: Array<{ label: string; action: () => void }>,
-    isSummary?: boolean
+    isSummary?: boolean,
+    showSizeGrid?: boolean
   ) => {
     setMessages((prev) => [
       ...prev,
@@ -317,6 +500,7 @@ export function ChatConfigurator() {
         text,
         options,
         isSummary,
+        showSizeGrid,
       },
     ]);
   };
@@ -329,10 +513,16 @@ export function ChatConfigurator() {
 
   const handleReset = () => {
     setModelType("TRADITIONAL");
+    setViewSide("FRONT");
+    setLogoScale(1.0);
+    setCollarType("Gola Redonda (Careca)");
+    setCollarColor(null);
+    setSleeveColor(null);
     setColor({ name: "Branco Neve", hex: "#FFFFFF" });
     setLogoUrl(null);
     setLogoPosition("PEITO_ESQUERDO");
     setQuantity(20);
+    setSizeDistribution({ PP: 0, P: 4, M: 8, G: 6, GG: 2, XG: 0, XXG: 0 });
     setCustomText("");
     setQuoteSummary(null);
     setMessages([
@@ -369,6 +559,18 @@ export function ChatConfigurator() {
         className="hidden"
       />
 
+      {/* Input de cor oculto para seleção livre na paleta hex */}
+      <input
+        type="color"
+        ref={colorInputRef}
+        value={color.hex}
+        onChange={(e) => {
+          const hex = e.target.value;
+          handleSelectColor({ name: `Personalizada (${hex.toUpperCase()})`, hex });
+        }}
+        className="hidden"
+      />
+
       {/* Lado Esquerdo: Mockup Fotográfico de Estúdio em Tempo Real (5 colunas) */}
       <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
         <div className="flex items-center justify-between px-1">
@@ -395,6 +597,10 @@ export function ChatConfigurator() {
           logoUrl={logoUrl}
           logoPosition={logoPosition}
           customText={customText}
+          viewSide={viewSide}
+          onViewSideChange={setViewSide}
+          logoScale={logoScale}
+          onLogoScaleChange={setLogoScale}
         />
 
         {/* Resumo Rápido dos Detalhes Técnicos */}
@@ -410,13 +616,46 @@ export function ChatConfigurator() {
             </span>
           </div>
           <div className="flex items-center justify-between">
+            <span className="text-slate-500 dark:text-zinc-400">Tipo de Gola:</span>
+            <span className="font-semibold text-slate-800 dark:text-zinc-200">
+              {collarType}
+            </span>
+          </div>
+          {collarColor && (
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-zinc-400">Gola Contrastante:</span>
+              <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                {collarColor.name}
+              </span>
+            </div>
+          )}
+          {sleeveColor && (
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-zinc-400">Mangas Contrastantes:</span>
+              <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                {sleeveColor.name}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 dark:text-zinc-400">Visão em Exibição:</span>
+            <span className="font-semibold text-slate-800 dark:text-zinc-200">
+              {viewSide === "FRONT"
+                ? "👕 Frente"
+                : viewSide === "BACK"
+                ? "🔄 Costas"
+                : "📐 Manga Lateral"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-slate-500 dark:text-zinc-400">Aplicação da Logo:</span>
             <span className="font-semibold text-slate-800 dark:text-zinc-200">
               {logoPosition === "PEITO_ESQUERDO"
                 ? "Peito Esquerdo (Bordado/DTF)"
                 : logoPosition === "CENTRO_FRONTAL"
-                ? "Centro Frontal (Silk/DTF)"
+                ? (viewSide === "BACK" ? "Costas (Centro Amplo)" : "Centro Frontal (Silk/DTF)")
                 : "Peito Direito (Bordado/DTF)"}
+              {logoUrl ? ` • Escala ${Math.round(logoScale * 100)}%` : ""}
             </span>
           </div>
           {logoUrl ? (
@@ -505,6 +744,65 @@ export function ChatConfigurator() {
                   </div>
                 )}
 
+                {/* Grade Interativa de Tamanhos (se ativado na mensagem) */}
+                {msg.showSizeGrid && (
+                  <div className="mt-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                        📏 Grade por Tamanho:
+                      </span>
+                      <span className="text-xs font-bold text-[#d4af37]">
+                        Total: {Object.values(sizeDistribution).reduce((a, b) => a + b, 0)} peças
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {["PP", "P", "M", "G", "GG", "XG", "XXG"].map((sz) => {
+                        const count = sizeDistribution[sz] || 0;
+                        return (
+                          <div
+                            key={sz}
+                            className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/60"
+                          >
+                            <span className="font-bold text-xs text-slate-700 dark:text-zinc-200 pl-1">
+                              {sz}:
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSize(sz, -1)}
+                                className="w-5 h-5 rounded bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 dark:hover:bg-zinc-600 flex items-center justify-center text-xs font-bold text-slate-800 dark:text-zinc-200 transition-colors"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="w-6 text-center font-mono font-bold text-xs text-slate-900 dark:text-white">
+                                {count}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSize(sz, 1)}
+                                className="w-5 h-5 rounded bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 dark:hover:bg-zinc-600 flex items-center justify-center text-xs font-bold text-slate-800 dark:text-zinc-200 transition-colors"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleConfirmSizes}
+                      disabled={Object.values(sizeDistribution).reduce((a, b) => a + b, 0) < 1}
+                      className="w-full bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs h-8 shadow-xs gap-1.5"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Confirmar Esta Grade ({Object.values(sizeDistribution).reduce((a, b) => a + b, 0)} peças)
+                    </Button>
+                  </div>
+                )}
+
                 {/* Card de Orçamento Compilado */}
                 {msg.isSummary && quoteSummary && (
                   <div className="mt-4 p-4 rounded-xl bg-white dark:bg-zinc-900 border-2 border-[#d4af37]/50 shadow-lg text-slate-900 dark:text-white space-y-3">
@@ -528,10 +826,22 @@ export function ChatConfigurator() {
                         <span className="text-slate-500 dark:text-zinc-400">Cor:</span>
                         <p className="font-semibold">{quoteSummary.colorName}</p>
                       </div>
+                      {quoteSummary.collarType && (
+                        <div>
+                          <span className="text-slate-500 dark:text-zinc-400">Tipo de Gola:</span>
+                          <p className="font-semibold">{quoteSummary.collarType}</p>
+                        </div>
+                      )}
                       <div>
                         <span className="text-slate-500 dark:text-zinc-400">Quantidade:</span>
                         <p className="font-semibold">{quoteSummary.quantity} unidades</p>
                       </div>
+                      {quoteSummary.sizeBreakdown && (
+                        <div className="col-span-2">
+                          <span className="text-slate-500 dark:text-zinc-400">Grade de Tamanhos:</span>
+                          <p className="font-semibold text-slate-700 dark:text-zinc-300">{quoteSummary.sizeBreakdown}</p>
+                        </div>
+                      )}
                       <div>
                         <span className="text-slate-500 dark:text-zinc-400">Preço Unitário:</span>
                         <p className="font-semibold">R$ {quoteSummary.unitPrice.toFixed(2)}</p>

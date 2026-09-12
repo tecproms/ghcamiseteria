@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export type MockupModelType = "TRADITIONAL" | "POLO" | "MANGA_LONGA";
 export type LogoPositionType = "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO";
+export type MockupViewSide = "FRONT" | "BACK" | "SLEEVE";
 
 interface PhotorealisticMockupProps {
   modelType: MockupModelType;
@@ -14,31 +15,83 @@ interface PhotorealisticMockupProps {
   logoPosition?: LogoPositionType;
   customText?: string;
   className?: string;
+  viewSide?: MockupViewSide;
+  onViewSideChange?: (side: MockupViewSide) => void;
+  logoScale?: number;
+  onLogoScaleChange?: (scale: number) => void;
   onImageRendered?: (dataUrl: string) => void;
 }
 
-const MODEL_IMAGES: Record<MockupModelType, string> = {
-  TRADITIONAL: "/mockups/studio-tshirt.png",
-  POLO: "/mockups/studio-polo.png",
-  MANGA_LONGA: "/mockups/studio-longsleeve.png",
-};
-
-// Posições percentuais de aplicação realista (x%, y% do canvas centralizado)
-const LOGO_COORDINATES: Record<MockupModelType, Record<LogoPositionType, { xPct: number; yPct: number; maxWidthPct: number }>> = {
+const MODEL_IMAGES: Record<MockupModelType, Record<MockupViewSide, string>> = {
   TRADITIONAL: {
-    PEITO_ESQUERDO: { xPct: 0.58, yPct: 0.32, maxWidthPct: 0.16 },
-    CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.38, maxWidthPct: 0.28 },
-    PEITO_DIREITO: { xPct: 0.42, yPct: 0.32, maxWidthPct: 0.16 },
+    FRONT: "/mockups/studio-tshirt.png",
+    BACK: "/mockups/studio-tshirt-back.png",
+    SLEEVE: "/mockups/studio-tshirt-side.png",
   },
   POLO: {
-    PEITO_ESQUERDO: { xPct: 0.60, yPct: 0.35, maxWidthPct: 0.15 },
-    CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.45, maxWidthPct: 0.24 },
-    PEITO_DIREITO: { xPct: 0.40, yPct: 0.35, maxWidthPct: 0.15 },
+    FRONT: "/mockups/studio-polo.png",
+    BACK: "/mockups/studio-polo-back.png",
+    SLEEVE: "/mockups/studio-polo-side.png",
   },
   MANGA_LONGA: {
-    PEITO_ESQUERDO: { xPct: 0.58, yPct: 0.32, maxWidthPct: 0.16 },
-    CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.38, maxWidthPct: 0.28 },
-    PEITO_DIREITO: { xPct: 0.42, yPct: 0.32, maxWidthPct: 0.16 },
+    FRONT: "/mockups/studio-longsleeve.png",
+    BACK: "/mockups/studio-longsleeve-back.png",
+    SLEEVE: "/mockups/studio-longsleeve-side.png",
+  },
+};
+
+// Posições percentuais de aplicação realista (x%, y% do canvas centralizado) por visão
+const LOGO_COORDINATES: Record<MockupViewSide, Record<MockupModelType, Record<LogoPositionType, { xPct: number; yPct: number; maxWidthPct: number }>>> = {
+  FRONT: {
+    TRADITIONAL: {
+      PEITO_ESQUERDO: { xPct: 0.58, yPct: 0.32, maxWidthPct: 0.16 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.38, maxWidthPct: 0.28 },
+      PEITO_DIREITO: { xPct: 0.42, yPct: 0.32, maxWidthPct: 0.16 },
+    },
+    POLO: {
+      PEITO_ESQUERDO: { xPct: 0.60, yPct: 0.35, maxWidthPct: 0.15 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.45, maxWidthPct: 0.24 },
+      PEITO_DIREITO: { xPct: 0.40, yPct: 0.35, maxWidthPct: 0.15 },
+    },
+    MANGA_LONGA: {
+      PEITO_ESQUERDO: { xPct: 0.58, yPct: 0.32, maxWidthPct: 0.16 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.38, maxWidthPct: 0.28 },
+      PEITO_DIREITO: { xPct: 0.42, yPct: 0.32, maxWidthPct: 0.16 },
+    },
+  },
+  BACK: {
+    TRADITIONAL: {
+      PEITO_ESQUERDO: { xPct: 0.50, yPct: 0.26, maxWidthPct: 0.22 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.40, maxWidthPct: 0.34 },
+      PEITO_DIREITO: { xPct: 0.50, yPct: 0.40, maxWidthPct: 0.34 },
+    },
+    POLO: {
+      PEITO_ESQUERDO: { xPct: 0.50, yPct: 0.28, maxWidthPct: 0.22 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.42, maxWidthPct: 0.32 },
+      PEITO_DIREITO: { xPct: 0.50, yPct: 0.42, maxWidthPct: 0.32 },
+    },
+    MANGA_LONGA: {
+      PEITO_ESQUERDO: { xPct: 0.50, yPct: 0.26, maxWidthPct: 0.22 },
+      CENTRO_FRONTAL: { xPct: 0.50, yPct: 0.40, maxWidthPct: 0.34 },
+      PEITO_DIREITO: { xPct: 0.50, yPct: 0.40, maxWidthPct: 0.34 },
+    },
+  },
+  SLEEVE: {
+    TRADITIONAL: {
+      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+      PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    },
+    POLO: {
+      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+      PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    },
+    MANGA_LONGA: {
+      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+      PEITO_DIREITO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+    },
   },
 };
 
@@ -52,11 +105,32 @@ export function PhotorealisticMockup({
   logoPosition = "PEITO_ESQUERDO",
   customText,
   className = "",
+  viewSide,
+  onViewSideChange,
+  logoScale,
+  onLogoScaleChange,
   onImageRendered,
 }: PhotorealisticMockupProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
+
+  const [internalViewSide, setInternalViewSide] = useState<MockupViewSide>("FRONT");
+  const [internalLogoScale, setInternalLogoScale] = useState<number>(1.0);
+
+  const currentView = viewSide ?? internalViewSide;
+  const currentScale = logoScale ?? internalLogoScale;
+
+  const handleSetView = (side: MockupViewSide) => {
+    setInternalViewSide(side);
+    onViewSideChange?.(side);
+  };
+
+  const handleScaleChange = (scale: number) => {
+    const clamped = Math.max(0.4, Math.min(2.5, Math.round(scale * 100) / 100));
+    setInternalLogoScale(clamped);
+    onLogoScaleChange?.(clamped);
+  };
 
   useEffect(() => {
     let isCancelled = false;
@@ -67,7 +141,8 @@ export function PhotorealisticMockup({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const imgPath = MODEL_IMAGES[modelType] || MODEL_IMAGES.TRADITIONAL;
+    const modelViews = MODEL_IMAGES[modelType] || MODEL_IMAGES.TRADITIONAL;
+    const imgPath = modelViews[currentView] || modelViews.FRONT;
 
     const baseImg = new Image();
     baseImg.crossOrigin = "anonymous";
@@ -218,7 +293,9 @@ export function PhotorealisticMockup({
     function applyOverlays() {
       if (!ctx) return;
       const size = 1000;
-      const coords = LOGO_COORDINATES[modelType][logoPosition];
+      const viewCoords = LOGO_COORDINATES[currentView] || LOGO_COORDINATES.FRONT;
+      const modelCoords = viewCoords[modelType] || viewCoords.TRADITIONAL;
+      const coords = modelCoords[logoPosition] || modelCoords.PEITO_ESQUERDO;
 
       // Se houver logo anexada
       if (logoUrl) {
@@ -228,7 +305,7 @@ export function PhotorealisticMockup({
         logoImg.onload = () => {
           if (isCancelled || !ctx) return;
 
-          const maxW = size * coords.maxWidthPct;
+          const maxW = size * coords.maxWidthPct * currentScale;
           const aspect = logoImg.naturalWidth / (logoImg.naturalHeight || 1);
           const w = maxW;
           const h = maxW / aspect;
@@ -288,7 +365,7 @@ export function PhotorealisticMockup({
     return () => {
       isCancelled = true;
     };
-  }, [modelType, color, logoUrl, logoPosition, customText, onImageRendered]);
+  }, [modelType, currentView, currentScale, color, logoUrl, logoPosition, customText, onImageRendered]);
 
   const handleDownload = () => {
     if (!renderedUrl) return;
@@ -301,14 +378,41 @@ export function PhotorealisticMockup({
   return (
     <div className={`relative flex flex-col items-center justify-center ${className}`}>
       <div className="relative w-full aspect-square max-w-[560px] mx-auto rounded-2xl bg-gradient-to-b from-slate-100 to-slate-200 dark:from-zinc-900 dark:to-zinc-950 border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex items-center justify-center p-2">
-        {/* Marca d'água de estúdio e badges */}
-        <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
-          <span className="px-2.5 py-1 rounded-md bg-white/80 dark:bg-black/70 backdrop-blur-md text-[11px] font-bold text-slate-800 dark:text-zinc-200 border border-slate-200/50 dark:border-zinc-700/50 shadow-sm">
-            📷 Foto Real de Estúdio
-          </span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 dark:text-zinc-400 bg-white/40 dark:bg-black/30 backdrop-blur-xs">
-            100% Acabamento Fabril
-          </span>
+        {/* Abas de Alternância de Visão (Frente, Costas, Manga Lateral) */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-1 bg-black/60 dark:bg-black/75 backdrop-blur-md p-1 rounded-lg border border-white/10 shadow-lg">
+          <button
+            type="button"
+            onClick={() => handleSetView("FRONT")}
+            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+              currentView === "FRONT"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-white/80 hover:text-white"
+            }`}
+          >
+            👕 Frente
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetView("BACK")}
+            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+              currentView === "BACK"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-white/80 hover:text-white"
+            }`}
+          >
+            🔄 Costas
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetView("SLEEVE")}
+            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+              currentView === "SLEEVE"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-white/80 hover:text-white"
+            }`}
+          >
+            📐 Manga (Lado)
+          </button>
         </div>
 
         {/* Botão de Download em Alta Resolução */}
@@ -323,6 +427,32 @@ export function PhotorealisticMockup({
             <Download className="h-3.5 w-3.5 text-[#d4af37]" />
             <span className="hidden sm:inline">Baixar Foto</span>
           </Button>
+        )}
+
+        {/* Controle de Escala da Logo (Reduzir / Aumentar) */}
+        {logoUrl && !loading && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
+            <span className="font-semibold text-slate-700 dark:text-zinc-300">Tamanho da Logo:</span>
+            <button
+              type="button"
+              onClick={() => handleScaleChange(currentScale - 0.15)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Reduzir logo"
+            >
+              -
+            </button>
+            <span className="font-mono font-bold min-w-9 text-center text-slate-800 dark:text-zinc-200">
+              {Math.round(currentScale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => handleScaleChange(currentScale + 0.15)}
+              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200"
+              title="Aumentar logo"
+            >
+              +
+            </button>
+          </div>
         )}
 
         {/* Loading Spinner */}

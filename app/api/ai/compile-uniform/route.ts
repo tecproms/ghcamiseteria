@@ -10,8 +10,13 @@ interface CompileRequest {
   currentProject: {
     model: "TRADITIONAL" | "POLO" | "MANGA_LONGA";
     color: { name: string; hex: string };
+    collarColor?: { name: string; hex: string };
+    sleeveColor?: { name: string; hex: string };
+    collarType?: string;
+    sizeDistribution?: Record<string, number>;
     logoUrl?: string | null;
-    logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO";
+    logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "CENTRO_COSTAS" | "MANGA";
+    logoScale?: number;
     quantity?: number;
     customText?: string;
     notes?: string;
@@ -198,13 +203,40 @@ Exemplo:
     const unitPrice = basePricing.unitPrice || (mergedProject.model === "POLO" ? 48.0 : 35.0);
     const totalPrice = basePricing.total || unitPrice * quantity;
 
+    // Formatar grade de tamanhos se especificada
+    let sizeBreakdownStr = "";
+    if (mergedProject.sizeDistribution && typeof mergedProject.sizeDistribution === "object") {
+      const parts = Object.entries(mergedProject.sizeDistribution)
+        .filter(([, q]) => Number(q) > 0)
+        .map(([sz, q]) => `${q}x ${sz}`);
+      if (parts.length > 0) {
+        sizeBreakdownStr = parts.join(", ");
+      }
+    }
+
+    const sizeLine = sizeBreakdownStr
+      ? `📏 *Grade de Tamanhos:* ${sizeBreakdownStr} (Total: ${quantity} un.)\n`
+      : `📦 *Quantidade:* ${quantity} unidades\n`;
+
+    const collarLine = mergedProject.collarType
+      ? `👔 *Tipo de Gola:* ${mergedProject.collarType}\n`
+      : "";
+
+    const contrastLine =
+      mergedProject.collarColor || mergedProject.sleeveColor
+        ? `🎨 *Detalhes Bicolor:* Gola: ${mergedProject.collarColor?.name || mergedProject.color.name} | Mangas: ${mergedProject.sleeveColor?.name || mergedProject.color.name}\n`
+        : "";
+
     // Texto formatado pronto para WhatsApp
-    const whatsAppText = `Olá, equipe da *GH Camiseteria*! 👋\n\n` +
+    const whatsAppText =
+      `Olá, equipe da *GH Camiseteria*! 👋\n\n` +
       `Montei meu uniforme personalizado no site e gostaria de formalizar meu orçamento:\n\n` +
       `👕 *Modelo:* ${modelBaseName}\n` +
-      `🎨 *Cor:* ${mergedProject.color.name} (${mergedProject.color.hex})\n` +
+      collarLine +
+      `🎨 *Cor Principal:* ${mergedProject.color.name} (${mergedProject.color.hex})\n` +
+      contrastLine +
       `📍 *Aplicação de Logo:* ${mergedProject.logoPosition || "Peito Esquerdo"}\n` +
-      `📦 *Quantidade:* ${quantity} unidades\n` +
+      sizeLine +
       `💰 *Estimativa:* R$ ${unitPrice.toFixed(2)}/un. (Total: R$ ${totalPrice.toFixed(2)})\n\n` +
       `Poderiam me passar os prazos de produção e os detalhes para envio da arte em alta resolução?`;
 
@@ -216,7 +248,11 @@ Exemplo:
         modelName: modelBaseName,
         colorName: mergedProject.color.name,
         colorHex: mergedProject.color.hex,
+        collarType: mergedProject.collarType,
+        collarColorName: mergedProject.collarColor?.name,
+        sleeveColorName: mergedProject.sleeveColor?.name,
         logoPosition: mergedProject.logoPosition || "PEITO_ESQUERDO",
+        sizeBreakdown: sizeBreakdownStr || `${quantity} un.`,
         quantity,
         unitPrice,
         totalPrice,
