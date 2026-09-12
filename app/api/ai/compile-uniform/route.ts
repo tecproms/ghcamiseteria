@@ -81,6 +81,7 @@ interface StructuredCommand {
     sleeveColor?: { name: string; hex: string };
     quantity?: number;
     sizeDistribution?: Record<string, number>;
+    logoUrl?: string | null;
     logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA";
     logoScale?: number;
     customText?: string;
@@ -330,6 +331,9 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
           break;
         }
       }
+      if (!changes.color && (lower.includes("mudar a cor") || lower.includes("muda a cor") || lower.includes("trocar a cor") || lower.includes("trocar de cor") || lower.includes("outra cor"))) {
+        replyParts.push("Claro! Para qual cor você gostaria de mudar? Temos 24 opções no catálogo como Azul Marinho, Preto Clássico, Branco Neve, Vermelho Ferrari, Cinza Mescla, Verde Militar...");
+      }
 
       // 5. Gola
       if (lower.includes("gola v")) {
@@ -354,11 +358,32 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         const gg = Math.max(0, qty - (p + m + g));
         changes.sizeDistribution = { PP: 0, P: p, M: m, G: g, GG: gg, XG: 0, XXG: 0 };
         replyParts.push(`Ajustei o lote para **${qty} unidades** com grade balanceada automática.`);
+      } else if (lower.includes("aumentar a quantidade") || lower.includes("aumenta a quantidade") || lower.includes("mais pecas") || lower.includes("mais peças")) {
+        action = "UPDATE_UNIFORM";
+        const newQty = (currentProject.quantity || 20) + 10;
+        changes.quantity = newQty;
+        const p = Math.round(newQty * 0.2);
+        const m = Math.round(newQty * 0.4);
+        const g = Math.round(newQty * 0.3);
+        const gg = Math.max(0, newQty - (p + m + g));
+        changes.sizeDistribution = { PP: 0, P: p, M: m, G: g, GG: gg, XG: 0, XXG: 0 };
+        replyParts.push(`Aumentei o lote para **${newQty} unidades** (+10 peças) com grade balanceada.`);
       }
 
-      // 7. Posição e Escala da Logo
+      // 7. Posição e Escala da Logo / Remoção
       const currentScale = currentProject.logoScale || 1.0;
-      if (body.hasUploadedLogo || lower.includes("anexei") || lower.includes("anexar") || lower.includes("anexada") || lower.includes("enviei minha logo") || lower.includes("minha logo")) {
+      if (lower.includes("tirar a logo") || lower.includes("tira a logo") || lower.includes("remover a logo") || lower.includes("remove a logo") || lower.includes("sem logo")) {
+        action = "UPDATE_LOGO";
+        if (lower.includes("costas") || currentProject.logoPosition === "COSTAS") {
+          changes.logoPosition = "PEITO_ESQUERDO";
+          changes.viewSide = "FRONT";
+          replyParts.push("Removi a aplicação da logo das costas e reposicionei no peito esquerdo.");
+        } else {
+          changes.logoPosition = "PEITO_ESQUERDO";
+          changes.logoUrl = null;
+          replyParts.push("Removi a logomarca do manequim.");
+        }
+      } else if (body.hasUploadedLogo || lower.includes("anexei") || lower.includes("anexar") || lower.includes("anexada") || lower.includes("enviei minha logo") || lower.includes("minha logo")) {
         action = "ADD_LOGO";
         replyParts.push("Identifiquei a sua logomarca! Ela foi anexada e aplicada diretamente no manequim 3D.");
       }
@@ -373,31 +398,40 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push(`Reduzi o tamanho da sua logomarca para **${Math.round(changes.logoScale * 100)}%**.`);
       }
 
-      if (lower.includes("peito esquerdo") || lower.includes("lado esquerdo") || lower.includes("coracao") || lower.includes("coração")) {
-        action = "ADD_LOGO";
-        changes.logoPosition = "PEITO_ESQUERDO";
-        changes.viewSide = "FRONT";
-        replyParts.push("Posicionei sua marca no **Peito Esquerdo**.");
-      } else if (lower.includes("peito direito") || lower.includes("lado direito")) {
-        action = "ADD_LOGO";
-        changes.logoPosition = "PEITO_DIREITO";
-        changes.viewSide = "FRONT";
-        replyParts.push("Posicionei sua marca no **Peito Direito**.");
-      } else if (lower.includes("centro") || lower.includes("meio do peito")) {
-        action = "ADD_LOGO";
-        changes.logoPosition = "CENTRO_FRONTAL";
-        changes.viewSide = "FRONT";
-        replyParts.push("Centralizei sua arte no **Centro do Peito**.");
-      } else if (lower.includes("costas") || lower.includes("atras") || lower.includes("parte de tras")) {
-        action = "ADD_LOGO";
-        changes.logoPosition = "COSTAS";
-        changes.viewSide = "BACK";
-        replyParts.push("Virei o manequim para as **Costas** para destacar a estampa traseira ampla.");
-      } else if (lower.includes("manga") || lower.includes("lado") || lower.includes("perfil")) {
-        action = "ADD_LOGO";
-        changes.logoPosition = "MANGA";
-        changes.viewSide = "SLEEVE";
-        replyParts.push("Girei o manequim para a **Manga Lateral**.");
+      const isRemovingLogo =
+        lower.includes("tirar a logo") ||
+        lower.includes("tira a logo") ||
+        lower.includes("remover a logo") ||
+        lower.includes("remove a logo") ||
+        lower.includes("sem logo");
+
+      if (!isRemovingLogo) {
+        if (lower.includes("peito esquerdo") || lower.includes("lado esquerdo") || lower.includes("coracao") || lower.includes("coração")) {
+          action = "ADD_LOGO";
+          changes.logoPosition = "PEITO_ESQUERDO";
+          changes.viewSide = "FRONT";
+          replyParts.push("Posicionei sua marca no **Peito Esquerdo**.");
+        } else if (lower.includes("peito direito") || lower.includes("lado direito")) {
+          action = "ADD_LOGO";
+          changes.logoPosition = "PEITO_DIREITO";
+          changes.viewSide = "FRONT";
+          replyParts.push("Posicionei sua marca no **Peito Direito**.");
+        } else if (lower.includes("centro") || lower.includes("meio do peito")) {
+          action = "ADD_LOGO";
+          changes.logoPosition = "CENTRO_FRONTAL";
+          changes.viewSide = "FRONT";
+          replyParts.push("Centralizei sua arte no **Centro do Peito**.");
+        } else if (lower.includes("costas") || lower.includes("atras") || lower.includes("parte de tras")) {
+          action = "ADD_LOGO";
+          changes.logoPosition = "COSTAS";
+          changes.viewSide = "BACK";
+          replyParts.push("Virei o manequim para as **Costas** para destacar a estampa traseira ampla.");
+        } else if (lower.includes("manga") || lower.includes("lado") || lower.includes("perfil")) {
+          action = "ADD_LOGO";
+          changes.logoPosition = "MANGA";
+          changes.viewSide = "SLEEVE";
+          replyParts.push("Girei o manequim para a **Manga Lateral**.");
+        }
       }
 
       // 8. Texto personalizado (ex: "Escreve BRAVO nas costas")

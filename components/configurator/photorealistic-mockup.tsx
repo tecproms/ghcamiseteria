@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export type MockupModelType = "TRADITIONAL" | "POLO" | "MANGA_LONGA";
 export type LogoPositionType = "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO";
-export type MockupViewSide = "FRONT" | "BACK" | "SLEEVE";
+export type MockupViewSide = "FRONT" | "BACK" | "SLEEVE" | "SLEEVE_LEFT" | "SLEEVE_RIGHT";
 
 interface PhotorealisticMockupProps {
   modelType: MockupModelType;
@@ -30,20 +30,44 @@ const MODEL_IMAGES: Record<MockupModelType, Record<MockupViewSide, string>> = {
     FRONT: "/mockups/studio-tshirt.png",
     BACK: "/mockups/studio-tshirt-back.png",
     SLEEVE: "/mockups/studio-tshirt-side.png",
+    SLEEVE_LEFT: "/mockups/studio-tshirt-side.png",
+    SLEEVE_RIGHT: "/mockups/studio-tshirt-side.png",
   },
   POLO: {
     FRONT: "/mockups/studio-polo.png",
     BACK: "/mockups/studio-polo-back.png",
     SLEEVE: "/mockups/studio-polo-side.png",
+    SLEEVE_LEFT: "/mockups/studio-polo-side.png",
+    SLEEVE_RIGHT: "/mockups/studio-polo-side.png",
   },
   MANGA_LONGA: {
     FRONT: "/mockups/studio-longsleeve.png",
     BACK: "/mockups/studio-longsleeve-back.png",
     SLEEVE: "/mockups/studio-longsleeve-side.png",
+    SLEEVE_LEFT: "/mockups/studio-longsleeve-side.png",
+    SLEEVE_RIGHT: "/mockups/studio-longsleeve-side.png",
   },
 };
 
 // Posições percentuais de aplicação realista (x%, y% do canvas centralizado) por visão
+const SLEEVE_COORDS_BASE: Record<MockupModelType, Record<LogoPositionType, { xPct: number; yPct: number; maxWidthPct: number }>> = {
+  TRADITIONAL: {
+    PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+  },
+  POLO: {
+    PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+    PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
+  },
+  MANGA_LONGA: {
+    PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+    CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+    PEITO_DIREITO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
+  },
+};
+
 const LOGO_COORDINATES: Record<MockupViewSide, Record<MockupModelType, Record<LogoPositionType, { xPct: number; yPct: number; maxWidthPct: number }>>> = {
   FRONT: {
     TRADITIONAL: {
@@ -79,23 +103,9 @@ const LOGO_COORDINATES: Record<MockupViewSide, Record<MockupModelType, Record<Lo
       PEITO_DIREITO: { xPct: 0.50, yPct: 0.40, maxWidthPct: 0.34 },
     },
   },
-  SLEEVE: {
-    TRADITIONAL: {
-      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-      PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-    },
-    POLO: {
-      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-      PEITO_DIREITO: { xPct: 0.45, yPct: 0.35, maxWidthPct: 0.18 },
-    },
-    MANGA_LONGA: {
-      PEITO_ESQUERDO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
-      CENTRO_FRONTAL: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
-      PEITO_DIREITO: { xPct: 0.45, yPct: 0.42, maxWidthPct: 0.20 },
-    },
-  },
+  SLEEVE: SLEEVE_COORDS_BASE,
+  SLEEVE_LEFT: SLEEVE_COORDS_BASE,
+  SLEEVE_RIGHT: SLEEVE_COORDS_BASE,
 };
 
 // Cache de imagem e máscara de fundo isolada
@@ -161,6 +171,9 @@ export function PhotorealisticMockup({
       canvas.width = size;
       canvas.height = size;
 
+      const isRightSleeve = currentView === "SLEEVE_RIGHT";
+      const cacheKey = isRightSleeve ? `${imgPath}#flipped` : imgPath;
+
       // Se a cor for branco puro, desenhamos a foto original diretamente (já é estúdio branco impecável)
       const isPureWhite =
         color.hex.toUpperCase() === "#FFFFFF" ||
@@ -169,13 +182,21 @@ export function PhotorealisticMockup({
 
       if (isPureWhite) {
         ctx.clearRect(0, 0, size, size);
-        ctx.drawImage(baseImg, 0, 0, size, size);
+        if (isRightSleeve) {
+          ctx.save();
+          ctx.translate(size, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(baseImg, 0, 0, size, size);
+          ctx.restore();
+        } else {
+          ctx.drawImage(baseImg, 0, 0, size, size);
+        }
         applyOverlays();
         return;
       }
 
       // Processamento de tingimento com remoção de fundo (Flood Fill das bordas)
-      let cached = maskCache[imgPath];
+      let cached = maskCache[cacheKey];
       if (!cached) {
         // Criar máscara de corte isolando o fundo branco
         const tempCanvas = document.createElement("canvas");
@@ -184,7 +205,15 @@ export function PhotorealisticMockup({
         const tempCtx = tempCanvas.getContext("2d");
         if (!tempCtx) return;
 
-        tempCtx.drawImage(baseImg, 0, 0, size, size);
+        if (isRightSleeve) {
+          tempCtx.save();
+          tempCtx.translate(size, 0);
+          tempCtx.scale(-1, 1);
+          tempCtx.drawImage(baseImg, 0, 0, size, size);
+          tempCtx.restore();
+        } else {
+          tempCtx.drawImage(baseImg, 0, 0, size, size);
+        }
         const imgData = tempCtx.getImageData(0, 0, size, size);
         const data = imgData.data;
 
@@ -303,10 +332,13 @@ export function PhotorealisticMockup({
       const modelCoords = viewCoords[modelType] || viewCoords.TRADITIONAL;
       const coords = modelCoords[logoPosition as LogoPositionType] || modelCoords.PEITO_ESQUERDO;
 
+      const isSleeveView = currentView === "SLEEVE" || currentView === "SLEEVE_LEFT" || currentView === "SLEEVE_RIGHT";
+      const isRightSleeve = currentView === "SLEEVE_RIGHT";
+
       const shouldShowLogo =
         !!logoUrl &&
         ((currentView === "BACK" && logoPosition === "COSTAS") ||
-          (currentView === "SLEEVE" && logoPosition === "MANGA") ||
+          (isSleeveView && logoPosition === "MANGA") ||
           (currentView === "FRONT" && logoPosition !== "COSTAS" && logoPosition !== "MANGA"));
 
       const drawTextAndNumber = () => {
@@ -356,7 +388,9 @@ export function PhotorealisticMockup({
           const w = maxW;
           const h = maxW / aspect;
 
-          const centerX = size * coords.xPct;
+          const rawXPct = coords.xPct;
+          const finalXPct = isRightSleeve ? 1 - rawXPct : rawXPct;
+          const centerX = size * finalXPct;
           const centerY = size * coords.yPct;
 
           ctx.save();
@@ -447,7 +481,7 @@ export function PhotorealisticMockup({
             type="button"
             onClick={() => handleSetView("SLEEVE")}
             className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
-              currentView === "SLEEVE"
+              currentView === "SLEEVE" || currentView === "SLEEVE_LEFT" || currentView === "SLEEVE_RIGHT"
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-white/80 hover:text-white"
             }`}
