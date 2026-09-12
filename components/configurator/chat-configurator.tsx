@@ -614,6 +614,8 @@ export function ChatConfigurator() {
               content: `Compilar orçamento final para ${activeQty} peças de ${modelType} na cor ${color.name} com acabamento em ${collarType} e logo no ${logoPosition}.`,
             },
           ],
+          currentQuoteNumber: activeQuote?.quoteNumber,
+          quoteVersion: activeQuote?.version,
           currentProject: {
             model: modelType,
             color,
@@ -633,17 +635,57 @@ export function ChatConfigurator() {
       const data = await res.json();
       if (data.success && data.quoteSummary) {
         setQuoteSummary(data.quoteSummary);
+
+        if (activeQuote) {
+          setQuoteHistory((prev) => {
+            if (prev.some((q) => q.quoteNumber === activeQuote.quoteNumber && q.version === activeQuote.version)) {
+              return prev;
+            }
+            return [activeQuote, ...prev];
+          });
+        }
+
+        const newQuote: OfficialQuoteRecord = {
+          id: `quote-${Date.now()}`,
+          quoteNumber: data.quoteSummary.quoteNumber || activeQuote?.quoteNumber || `#${Math.floor(1000 + Math.random() * 9000)}`,
+          version: data.quoteSummary.version || (activeQuote ? activeQuote.version + 1 : 1),
+          status: "AGUARDANDO APROVAÇÃO",
+          modelName: data.quoteSummary.modelName,
+          colorName: data.quoteSummary.colorName,
+          quantity: data.quoteSummary.quantity,
+          customizations: data.quoteSummary.customizations || [
+            data.quoteSummary.logoPosition
+              ? `Logo ${data.quoteSummary.logoPosition.toLowerCase().replace(/_/g, " ")}`
+              : "Logo peito esquerdo",
+          ],
+          unitPrice: data.quoteSummary.unitPrice,
+          totalPrice: data.quoteSummary.totalPrice,
+          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          whatsAppText: data.quoteSummary.whatsAppText,
+          leadTimeDays: data.quoteSummary.leadTimeDays,
+          discountPercent: data.quoteSummary.discountPercent,
+        };
+        setActiveQuote(newQuote);
+
         addMessage(
           "assistant",
-          `🎉 **Orçamento Compilado com Sucesso via Groq AI!**\n\nConfira os valores e a ficha técnica abaixo. Você pode abrir a tela de confirmação e aprovação visual completa:`,
+          `🎉 **Orçamento ${newQuote.quoteNumber} (v${newQuote.version}) compilado com sucesso!**\n\nConfira os valores calculados pelo motor oficial e aprove ou ajuste seu uniforme nos botões abaixo:`,
           [
+            {
+              label: "✅ APROVAR ORÇAMENTO",
+              action: () => handleApproveQuote(),
+            },
+            {
+              label: "✏️ ALTERAR UNIFORME",
+              action: () => handleAlterUniform(),
+            },
             {
               label: "👁️ Ver Revisão e Aprovação Visual",
               action: () => setIsReviewOpen(true),
             },
             {
-              label: "📋 Solicitar Orçamento Oficial",
-              action: () => handleRequestSnapshotQuote(),
+              label: "📲 Compartilhar no WhatsApp",
+              action: () => handleShareWhatsApp(),
             },
           ],
           true
@@ -1471,35 +1513,54 @@ export function ChatConfigurator() {
                 </div>
 
                 {/* Preço (Quando disponível) */}
-                {quoteSummary ? (
+                {(activeQuote || quoteSummary) ? (
                   <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-amber-900/20 border-2 border-[#d4af37]/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
                         <Coins className="h-4 w-4 text-[#d4af37]" />
-                        Preço Oficial da Fábrica
+                        {activeQuote ? `ORÇAMENTO ${activeQuote.quoteNumber} (v${activeQuote.version})` : "Preço Oficial da Fábrica"}
                       </span>
-                      {quoteSummary.discountPercent > 0 && (
+                      {activeQuote ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                            activeQuote.status === "APROVADO"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-amber-600 text-white"
+                          }`}
+                        >
+                          {activeQuote.status}
+                        </span>
+                      ) : quoteSummary && quoteSummary.discountPercent > 0 ? (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[10px]">
                           {quoteSummary.discountPercent}% OFF por Volume
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex items-baseline justify-between pt-1 border-t border-amber-200 dark:border-amber-800/60">
                       <div>
                         <span className="text-[11px] text-slate-600 dark:text-zinc-400">Valor Unitário:</span>
                         <p className="text-sm font-bold text-slate-900 dark:text-white">
-                          R$ {quoteSummary.unitPrice.toFixed(2)} / un
+                          R$ {(activeQuote?.unitPrice || quoteSummary?.unitPrice || 0).toFixed(2)} / un
                         </p>
                       </div>
                       <div className="text-right">
                         <span className="text-[11px] text-slate-600 dark:text-zinc-400">Total ({quantity} un):</span>
                         <p className="text-2xl font-black text-amber-600 dark:text-[#d4af37]">
-                          R$ {quoteSummary.totalPrice.toFixed(2)}
+                          R$ {(activeQuote?.totalPrice || quoteSummary?.totalPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
+                    {activeQuote && activeQuote.status !== "APROVADO" && (
+                      <Button
+                        onClick={handleApproveQuote}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 shadow-md gap-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        APROVAR ESTE ORÇAMENTO
+                      </Button>
+                    )}
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 text-right">
-                      Prazo estimado de produção: ~{quoteSummary.leadTimeDays} dias úteis
+                      Prazo estimado de produção: ~{activeQuote?.leadTimeDays || quoteSummary?.leadTimeDays || 7} dias úteis
                     </p>
                   </div>
                 ) : (
