@@ -7,6 +7,7 @@ import crypto from "crypto";
 
 export interface UniformSnapshot {
   id: string;
+  shareToken: string;
   createdAt: string;
   hash: string;
   project: {
@@ -44,6 +45,7 @@ export interface UniformSnapshot {
 
 // Registro em memória para persistência rápida e imutável (fallback transparente)
 const snapshotsRegistry: Map<string, UniformSnapshot> = new Map();
+const shareTokensRegistry: Map<string, UniformSnapshot> = new Map();
 
 export async function POST(req: Request) {
   try {
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
     }
 
     const id = `SNAP-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const shareToken = crypto.randomBytes(16).toString("hex");
     const createdAt = new Date().toISOString();
 
     // Gerar hash criptográfico determinístico dos dados do uniforme
@@ -80,6 +83,7 @@ export async function POST(req: Request) {
 
     const snapshot: UniformSnapshot = {
       id,
+      shareToken,
       createdAt,
       hash,
       project: {
@@ -97,10 +101,12 @@ export async function POST(req: Request) {
     Object.freeze(snapshot);
 
     snapshotsRegistry.set(id, snapshot);
+    shareTokensRegistry.set(shareToken, snapshot);
 
     return NextResponse.json({
       success: true,
       snapshotId: id,
+      shareToken,
       hash,
       createdAt,
       snapshot,
@@ -115,11 +121,36 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const token = searchParams.get("token");
     const id = searchParams.get("id");
 
+    // 1. Busca por Token de Compartilhamento Público
+    if (token) {
+      const snapshot = shareTokensRegistry.get(token);
+      if (!snapshot) {
+        return NextResponse.json(
+          { success: false, error: "Projeto não encontrado ou link expirado." },
+          { status: 404 }
+        );
+      }
+
+      // Higienização estrita de segurança:
+      // NUNCA expor customerInfo, emails, telefones ou identificadores internos
+      return NextResponse.json({
+        success: true,
+        shareToken: snapshot.shareToken,
+        id: snapshot.id,
+        hash: snapshot.hash,
+        createdAt: snapshot.createdAt,
+        project: snapshot.project,
+        pricing: snapshot.pricing,
+      });
+    }
+
+    // 2. Busca por ID direto do Snapshot
     if (!id) {
       return NextResponse.json(
-        { success: false, error: "ID do snapshot é obrigatório." },
+        { success: false, error: "ID ou Token do projeto é obrigatório." },
         { status: 400 }
       );
     }

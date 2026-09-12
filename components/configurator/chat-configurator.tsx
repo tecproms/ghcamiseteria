@@ -124,6 +124,7 @@ export function ChatConfigurator() {
   const [isReviewOpen, setIsReviewOpen] = useState<boolean>(false);
   const [isGeneratingSnapshot, setIsGeneratingSnapshot] = useState<boolean>(false);
   const [snapshotCode, setSnapshotCode] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummaryData | null>(null);
@@ -646,6 +647,7 @@ export function ChatConfigurator() {
       const data = await res.json();
       if (data.success && data.snapshotId) {
         setSnapshotCode(data.snapshotId);
+        if (data.shareToken) setShareToken(data.shareToken);
 
         // Disparar WhatsApp com a referência do snapshot imutável
         const snapRef = `\n🔒 *Ref. Snapshot:* ${data.snapshotId} (Hash: ${data.hash})`;
@@ -660,14 +662,192 @@ export function ChatConfigurator() {
     }
   };
 
+  const handleShareWhatsApp = async () => {
+    setIsGeneratingSnapshot(true);
+    try {
+      let currentToken = shareToken;
+      let currentSnapId = snapshotCode;
+
+      // Se ainda não gerou snapshot ou token, solicitar agora
+      if (!currentToken || !currentSnapId) {
+        const res = await fetch("/api/orcamentos/snapshot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: {
+              model: modelType,
+              modelName:
+                modelType === "POLO"
+                  ? "Camisa Polo Empresarial em Piquet"
+                  : modelType === "MANGA_LONGA"
+                  ? "Camisa Manga Longa com Ribana"
+                  : "Camiseta Tradicional Meia Malha ou Dry Fit",
+              fabric,
+              purpose,
+              color,
+              collarType,
+              collarColor,
+              sleeveColor,
+              quantity,
+              sizeDistribution,
+              logoUrl,
+              logoPosition,
+              logoScale,
+              customText,
+              customTextPosition,
+              customNumber,
+              customNumberPosition,
+            },
+            pricing: quoteSummary
+              ? {
+                  unitPrice: quoteSummary.unitPrice,
+                  totalPrice: quoteSummary.totalPrice,
+                  discountPercent: quoteSummary.discountPercent,
+                  leadTimeDays: quoteSummary.leadTimeDays,
+                }
+              : null,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          currentToken = data.shareToken;
+          currentSnapId = data.snapshotId;
+          setShareToken(data.shareToken);
+          setSnapshotCode(data.snapshotId);
+        }
+      }
+
+      // Link Seguro de Visualização Pública
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const secureViewUrl = currentToken ? `${origin}/projeto/visualizar/${currentToken}` : origin;
+
+      // Personalizações formatadas
+      const personalizacoes = [
+        logoPosition === "PEITO_ESQUERDO"
+          ? "Logo no Peito Esquerdo"
+          : logoPosition === "CENTRO_FRONTAL"
+          ? "Logo no Centro Frontal"
+          : logoPosition === "COSTAS"
+          ? "Logo nas Costas"
+          : logoPosition === "MANGA"
+          ? "Logo na Manga"
+          : "Logo no Peito Direito",
+        logoUrl ? "(Arte Anexada)" : "(Pendente de envio)",
+        customText ? `Texto: "${customText}" (${customTextPosition === "BACK" ? "Costas" : "Frente"})` : null,
+        customNumber ? `Número: ${customNumber}` : null,
+        collarColor ? `Gola: ${collarColor.name}` : null,
+        sleeveColor ? `Mangas: ${sleeveColor.name}` : null,
+      ]
+        .filter(Boolean)
+        .join(" • ");
+
+      // Grade resumida
+      const gradeResumida =
+        Object.entries(sizeDistribution)
+          .filter(([, q]) => q > 0)
+          .map(([sz, q]) => `${q}x ${sz}`)
+          .join(", ") || "Grade padrão proporcional";
+
+      // Modelo nome
+      const nomeModelo =
+        quoteSummary?.modelName ||
+        (modelType === "POLO"
+          ? "Camisa Polo Piquet"
+          : modelType === "MANGA_LONGA"
+          ? "Camisa Manga Longa"
+          : "Camiseta Tradicional");
+
+      // Mensagem profissional conforme especificado pelo usuário
+      let text = `Olá, montei este projeto de uniforme na GH Camiseteria. Confira a proposta:\n\n` +
+        `📋 *Projeto:* Uniforme Personalizado\n` +
+        `🆔 *Identificação:* ${currentSnapId || "PROJ-GH"}\n` +
+        `👕 *Modelo:* ${nomeModelo}\n` +
+        `🎨 *Cor:* ${color.name}\n` +
+        `📦 *Quantidade:* ${quantity} unidades\n` +
+        `📏 *Grade Resumida:* ${gradeResumida}\n` +
+        `✨ *Personalizações:* ${personalizacoes}\n`;
+
+      if (quoteSummary) {
+        text += `💰 *Valor Estimado:* R$ ${quoteSummary.unitPrice.toFixed(2)}/un. (Total: R$ ${quoteSummary.totalPrice.toFixed(2)})\n` +
+          `⏱️ *Prazo de Produção:* ~${quoteSummary.leadTimeDays} dias úteis\n`;
+      }
+
+      text += `\n👁️ *Confira a proposta e o manequim em 360º aqui:*\n${secureViewUrl}\n\n` +
+        `_GH Camiseteria & Uniformes Personalizados_`;
+
+      const encoded = encodeURIComponent(text);
+      window.open(`https://api.whatsapp.com/send?text=${encoded}`, "_blank");
+    } catch (err) {
+      console.error("Erro ao compartilhar no WhatsApp:", err);
+    } finally {
+      setIsGeneratingSnapshot(false);
+    }
+  };
+
   const handleShare = async () => {
+    let currentToken = shareToken;
+    if (!currentToken) {
+      try {
+        const res = await fetch("/api/orcamentos/snapshot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: {
+              model: modelType,
+              modelName:
+                modelType === "POLO"
+                  ? "Camisa Polo Empresarial em Piquet"
+                  : modelType === "MANGA_LONGA"
+                  ? "Camisa Manga Longa com Ribana"
+                  : "Camiseta Tradicional Meia Malha ou Dry Fit",
+              fabric,
+              purpose,
+              color,
+              collarType,
+              collarColor,
+              sleeveColor,
+              quantity,
+              sizeDistribution,
+              logoUrl,
+              logoPosition,
+              logoScale,
+              customText,
+              customTextPosition,
+              customNumber,
+              customNumberPosition,
+            },
+            pricing: quoteSummary
+              ? {
+                  unitPrice: quoteSummary.unitPrice,
+                  totalPrice: quoteSummary.totalPrice,
+                  discountPercent: quoteSummary.discountPercent,
+                  leadTimeDays: quoteSummary.leadTimeDays,
+                }
+              : null,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.shareToken) {
+          currentToken = data.shareToken;
+          setShareToken(data.shareToken);
+          setSnapshotCode(data.snapshotId);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const shareUrl = currentToken ? `${origin}/projeto/visualizar/${currentToken}` : (typeof window !== "undefined" ? window.location.href : "");
     const shareText = `Confira a configuração do meu uniforme na GH Camiseteria: ${modelType} (${color.name}), ${quantity} peças.`;
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
           title: "Meu Uniforme - GH Camiseteria",
           text: shareText,
-          url: window.location.href,
+          url: shareUrl,
         });
         return;
       } catch {
@@ -676,7 +856,7 @@ export function ChatConfigurator() {
     }
 
     try {
-      await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2500);
     } catch {
@@ -749,8 +929,16 @@ export function ChatConfigurator() {
             </p>
           </div>
 
-          {/* 3 Botões de Ação no Topo */}
+          {/* Botões de Ação no Topo */}
           <div className="flex flex-wrap gap-2.5 items-center">
+            <Button
+              onClick={handleShareWhatsApp}
+              disabled={isGeneratingSnapshot}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-4 gap-2 shadow-lg"
+            >
+              <Share2 className="h-4 w-4" />
+              COMPARTILHAR NO WHATSAPP
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsReviewOpen(false)}
@@ -762,7 +950,7 @@ export function ChatConfigurator() {
             <Button
               onClick={handleRequestSnapshotQuote}
               disabled={isGeneratingSnapshot}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 gap-2 shadow-lg"
+              className="bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs h-10 px-4 gap-2 shadow-md"
             >
               {isGeneratingSnapshot ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -779,7 +967,7 @@ export function ChatConfigurator() {
               {isCopied ? (
                 <Check className="h-4 w-4 text-emerald-400" />
               ) : (
-                <Share2 className="h-4 w-4 text-[#d4af37]" />
+                <Copy className="h-4 w-4 text-[#d4af37]" />
               )}
               {isCopied ? "COPIADO!" : "COMPARTILHAR"}
             </Button>
@@ -1144,12 +1332,21 @@ export function ChatConfigurator() {
                 )}
               </div>
 
-              {/* Os 3 Botões Solicitados Exatamente no Bloco de Resumo */}
+              {/* Os Botões de Ação no Bloco de Resumo */}
               <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
+                <Button
+                  onClick={handleShareWhatsApp}
+                  disabled={isGeneratingSnapshot}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm h-12 shadow-lg gap-2"
+                >
+                  <Share2 className="h-4 w-4" />
+                  COMPARTILHAR NO WHATSAPP
+                </Button>
+
                 <Button
                   onClick={handleRequestSnapshotQuote}
                   disabled={isGeneratingSnapshot}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm h-12 shadow-lg gap-2"
+                  className="w-full bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-sm h-11 shadow-md gap-2"
                 >
                   {isGeneratingSnapshot ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1541,12 +1738,11 @@ export function ChatConfigurator() {
                         Revisar Uniforme Completo
                       </Button>
                       <Button
-                        onClick={handleOpenWhatsApp}
-                        variant="outline"
-                        className="flex-1 text-xs font-bold gap-2"
+                        onClick={handleShareWhatsApp}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md"
                       >
-                        <Share2 className="h-4 w-4 text-emerald-600" />
-                        WhatsApp da Fábrica
+                        <Share2 className="h-4 w-4" />
+                        Compartilhar no WhatsApp
                       </Button>
                     </div>
                   </div>
@@ -1731,13 +1927,22 @@ export function ChatConfigurator() {
             </div>
           </div>
 
-          <Button
-            onClick={handleOpenWhatsApp}
-            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-6 gap-2 shadow-md"
-          >
-            <Share2 className="h-4 w-4" />
-            Finalizar no WhatsApp da Fábrica
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              onClick={handleShareWhatsApp}
+              className="bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs h-10 px-5 gap-2 shadow-md"
+            >
+              <Share2 className="h-4 w-4" />
+              Compartilhar no WhatsApp
+            </Button>
+            <Button
+              onClick={handleOpenWhatsApp}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 gap-2 shadow-md"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Finalizar no WhatsApp da Fábrica
+            </Button>
+          </div>
         </div>
       )}
     </div>
