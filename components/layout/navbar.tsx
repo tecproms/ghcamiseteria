@@ -16,7 +16,6 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/uniformes", label: "Uniformes" },
-    { href: "/monte-seu-uniforme", label: "Monte seu uniforme" },
     { href: "/meus-projetos", label: "Meus projetos" },
     { href: "/meus-orcamentos", label: "Meus orçamentos" },
     { href: "/meus-pedidos", label: "Meus pedidos" },

@@ -21,15 +21,10 @@ export default function HomePage() {
               Desenvolva uniformes corporativos, industriais, esportivos e promocionais com tecidos de alta durabilidade, modelagem precisa e personalização de ponta.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/monte-seu-uniforme">
-                <Button size="lg" className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-                  Monte seu Uniforme
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
               <Link href="/uniformes">
-                <Button variant="outline" size="lg" className="border-slate-300 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">
+                <Button size="lg" className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
                   Ver Catálogo de Modelos
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
@@ -90,9 +85,9 @@ export default function HomePage() {
             Acompanhe orçamentos rápidos e pedidos diretamente pela nossa plataforma online.
           </p>
           <div className="mt-8 flex justify-center gap-4">
-            <Link href="/monte-seu-uniforme">
+            <Link href="/uniformes">
               <Button size="lg" className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-                Iniciar Personalização
+                Ver Catálogo de Uniformes
               </Button>
             </Link>
           </div>

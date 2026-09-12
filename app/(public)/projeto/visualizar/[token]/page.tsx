@@ -156,10 +156,10 @@ export default function VisualizarProjetoPage() {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full">
           <Link
-            href="/monte-seu-uniforme"
+            href="/uniformes"
             className="flex-1 inline-flex items-center justify-center rounded-lg text-sm font-bold h-10 px-4 bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 shadow-sm transition-colors"
           >
-            Monte seu Próprio Uniforme
+            Ver Catálogo de Uniformes
           </Link>
           <Link
             href="/"
@@ -562,10 +562,10 @@ export default function VisualizarProjetoPage() {
               </Button>
 
               <Link
-                href="/monte-seu-uniforme"
+                href="/uniformes"
                 className="w-full inline-flex items-center justify-center font-bold text-xs h-11 gap-2 border border-slate-300 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl transition-colors"
               >
-                Monte seu Próprio Uniforme
+                Ver Catálogo de Uniformes
                 <ArrowRight className="h-3.5 w-3.5 text-[#d4af37]" />
               </Link>
             </div>

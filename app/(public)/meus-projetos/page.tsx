@@ -7,14 +7,12 @@ import {
   Plus,
   Calendar,
   Layers,
-  Edit3,
   Copy,
   Trash2,
   Loader2,
   AlertCircle,
   LogIn,
   Shirt,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -119,10 +117,10 @@ export default function MeusProjetosPage() {
           </p>
         </div>
 
-        <Link href="/monte-seu-uniforme">
+        <Link href="/uniformes">
           <Button className="gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold shadow-sm">
             <Plus className="h-4 w-4" />
-            Novo Uniforme
+            Ver Catálogo
           </Button>
         </Link>
       </div>
@@ -192,10 +190,10 @@ export default function MeusProjetosPage() {
               Utilize o nosso configurador visual para escolher o modelo, aplicar logos, textos, números e salvar suas criações.
             </p>
             <div className="pt-2">
-              <Link href="/monte-seu-uniforme">
+              <Link href="/uniformes">
                 <Button className="gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold">
-                  <Sparkles className="h-4 w-4" />
-                  Montar Meu Primeiro Uniforme
+                  <Shirt className="h-4 w-4" />
+                  Ver Catálogo de Uniformes
                 </Button>
               </Link>
             </div>
@@ -312,15 +310,15 @@ export default function MeusProjetosPage() {
                   {/* Ações: Editar, Duplicar e Excluir */}
                   <div className="pt-2 flex items-center gap-2">
                     <Link
-                      href={`/monte-seu-uniforme?projetoId=${project.id}`}
+                      href="/uniformes"
                       className="flex-1"
                     >
                       <Button
                         size="sm"
                         className="w-full gap-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold text-xs h-9"
                       >
-                        <Edit3 className="h-3.5 w-3.5" />
-                        Editar
+                        <Shirt className="h-3.5 w-3.5" />
+                        Catálogo
                       </Button>
                     </Link>
 

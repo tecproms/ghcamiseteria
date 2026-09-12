@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Shirt, Filter, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,12 +21,16 @@ export default function UniformesPage() {
             Conheça os modelos base disponíveis para confecção sob medida e personalização da sua marca.
           </p>
         </div>
-        <Link href="/monte-seu-uniforme">
+        <a
+          href={`https://api.whatsapp.com/send?phone=${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999"}&text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento de uniformes.")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <Button className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-            Monte seu Uniforme
+            Solicitar Orçamento
             <ArrowRight className="h-4 w-4" />
           </Button>
-        </Link>
+        </a>
       </div>
 
       {/* Category Pills */}
@@ -54,14 +57,18 @@ export default function UniformesPage() {
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">Modelos e Catálogo Especializado</h3>
         <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
-          Escolha os cortes e acabamentos desejados e configure seu pedido com visualização em tempo real.
+          Consulte nossa equipe para confecção sob medida com tecidos premium, bordados e estampas de alta durabilidade.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link href="/monte-seu-uniforme">
+          <a
+            href={`https://api.whatsapp.com/send?phone=${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999"}&text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento para uniformes.")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <Button size="sm" className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-              Acessar Personalizador
+              Falar com Consultor
             </Button>
-          </Link>
+          </a>
         </div>
       </div>
     </div>

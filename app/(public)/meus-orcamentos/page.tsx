@@ -210,10 +210,10 @@ export default function MeusOrcamentosPage() {
           </p>
         </div>
 
-        <Link href="/monte-seu-uniforme">
+        <Link href="/uniformes">
           <Button className="gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold shadow-sm">
             <Plus className="h-4 w-4" />
-            Nova Cotação
+            Ver Catálogo
           </Button>
         </Link>
       </div>
@@ -277,13 +277,13 @@ export default function MeusOrcamentosPage() {
               Nenhuma solicitação de orçamento encontrada
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-              Monte seu uniforme personalizado no configurador e clique em <strong>&quot;Solicitar Orçamento&quot;</strong> para receber uma proposta oficial.
+              Consulte os modelos em nosso catálogo de uniformes e solicite uma proposta oficial da fábrica.
             </p>
             <div className="pt-2">
-              <Link href="/monte-seu-uniforme">
+              <Link href="/uniformes">
                 <Button className="gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] font-semibold">
                   <Shirt className="h-4 w-4" />
-                  Montar Uniforme & Cotar
+                  Ver Catálogo de Uniformes
                 </Button>
               </Link>
             </div>
