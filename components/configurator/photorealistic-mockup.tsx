@@ -18,6 +18,7 @@ interface PhotorealisticMockupProps {
   customNumber?: string;
   customNumberPosition?: "FRONT" | "BACK";
   className?: string;
+  hasPocket?: boolean;
   viewSide?: MockupViewSide;
   onViewSideChange?: (side: MockupViewSide) => void;
   logoScale?: number;
@@ -121,6 +122,7 @@ export function PhotorealisticMockup({
   customNumber,
   customNumberPosition = "BACK",
   className = "",
+  hasPocket = false,
   viewSide,
   onViewSideChange,
   logoScale,
@@ -308,17 +310,6 @@ export function PhotorealisticMockup({
       ctx.globalCompositeOperation = "multiply";
       ctx.drawImage(maskCanvas, 0, 0);
 
-      // 4. Se a cor for muito escura (como Preto ou Azul Marinho), adicionar brilho de vincos com SCREEN
-      const rgb = hexToRgb(color.hex);
-      const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-
-      if (luminance < 0.35) {
-        ctx.globalCompositeOperation = "screen";
-        ctx.globalAlpha = 0.35;
-        ctx.drawImage(maskCanvas, 0, 0);
-        ctx.globalAlpha = 1.0;
-      }
-
       // Restaura para source-over normal
       ctx.globalCompositeOperation = "source-over";
 
@@ -375,6 +366,46 @@ export function PhotorealisticMockup({
           ctx.restore();
         }
       };
+
+      const drawPocket = () => {
+        if (!ctx || !hasPocket || currentView !== "FRONT") return;
+        const pX = size * (modelType === "POLO" ? 0.60 : 0.58);
+        const pY = size * (modelType === "POLO" ? 0.38 : 0.35);
+        const pW = 108;
+        const pH = 124;
+        const r = 16;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(pX - pW / 2, pY - pH / 2);
+        ctx.lineTo(pX + pW / 2, pY - pH / 2);
+        ctx.lineTo(pX + pW / 2, pY + pH / 2 - r);
+        ctx.quadraticCurveTo(pX + pW / 2, pY + pH / 2, pX + pW / 2 - r, pY + pH / 2);
+        ctx.lineTo(pX - pW / 2 + r, pY + pH / 2);
+        ctx.quadraticCurveTo(pX - pW / 2, pY + pH / 2, pX - pW / 2, pY + pH / 2 - r);
+        ctx.closePath();
+
+        const isDark = hexToRgb(color.hex).r < 100 && hexToRgb(color.hex).g < 100;
+        ctx.fillStyle = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)";
+        ctx.fill();
+
+        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.28)" : "rgba(0, 0, 0, 0.22)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pX - pW / 2, pY - pH / 2 + 18);
+        ctx.lineTo(pX + pW / 2, pY - pH / 2 + 18);
+        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.35)" : "rgba(0, 0, 0, 0.28)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        ctx.restore();
+      };
+
+      drawPocket();
 
       if (shouldShowLogo && logoUrl) {
         const logoImg = new Image();
@@ -439,6 +470,7 @@ export function PhotorealisticMockup({
     customTextPosition,
     customNumber,
     customNumberPosition,
+    hasPocket,
     onImageRendered,
   ]);
 

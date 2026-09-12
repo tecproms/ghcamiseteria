@@ -154,8 +154,10 @@ export function ChatConfigurator() {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [hasPocket, setHasPocket] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
@@ -187,7 +189,12 @@ export function ChatConfigurator() {
   ]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages, isTyping]);
 
   const handleSelectPurpose = (selectedPurpose: string, promptText: string) => {
@@ -474,6 +481,7 @@ export function ChatConfigurator() {
             purpose,
             fabric,
             desiredDeadline,
+            hasPocket,
           },
         }),
       });
@@ -490,6 +498,7 @@ export function ChatConfigurator() {
         if (changes.collarType) setCollarType(changes.collarType);
         if (changes.collarColor !== undefined) setCollarColor(changes.collarColor);
         if (changes.sleeveColor !== undefined) setSleeveColor(changes.sleeveColor);
+        if (changes.hasPocket !== undefined) setHasPocket(Boolean(changes.hasPocket));
         if (changes.quantity) setQuantity(changes.quantity);
         if (changes.sizeDistribution) setSizeDistribution(changes.sizeDistribution);
         if (changes.logoPosition) setLogoPosition(changes.logoPosition);
@@ -580,12 +589,70 @@ export function ChatConfigurator() {
             ]
           : [
               {
-                label: "👁️ Ver Revisão e Aprovação Visual",
-                action: () => setIsReviewOpen(true),
+                label: "🎨 Escolher Cor",
+                action: () => {
+                  addMessage(
+                    "assistant",
+                    "Qual cor principal você prefere para o tecido?",
+                    [
+                      ...AVAILABLE_COLORS.slice(0, 10).map((c) => ({
+                        label: c.name,
+                        action: () => handleSelectColor(c),
+                      })),
+                      {
+                        label: "🎨 Paleta Livre (Hex)",
+                        action: () => colorInputRef.current?.click(),
+                      },
+                    ]
+                  );
+                },
+              },
+              {
+                label: "👔 Escolher Gola",
+                action: () => {
+                  addMessage(
+                    "assistant",
+                    "Qual tipo de acabamento de gola você prefere?",
+                    [
+                      { label: "⚪ Gola Redonda", action: () => handleSelectCollarType("Gola Redonda (Careca)") },
+                      { label: "📐 Gola V Esportiva", action: () => handleSelectCollarType("Gola V Esportiva") },
+                      { label: "👔 Gola Polo com Botões", action: () => handleSelectCollarType("Gola Polo com Botões") },
+                    ]
+                  );
+                },
+              },
+              {
+                label: hasPocket ? "❌ Remover Bolso" : "👜 Adicionar Bolso",
+                action: () => handleSendMessage(hasPocket ? "Quero sem bolso" : "Adicione um bolso"),
+              },
+              {
+                label: "📎 Anexar Logo",
+                action: () => fileInputRef.current?.click(),
+              },
+              {
+                label: "📏 Definir Quantidades",
+                action: () => {
+                  addMessage(
+                    "assistant",
+                    "Quantas peças você estima produzir para o lote da equipe?",
+                    [
+                      { label: "10 peças", action: () => handleSelectQuantity(10) },
+                      { label: "20 peças (10% OFF)", action: () => handleSelectQuantity(20) },
+                      { label: "50 peças (15% OFF)", action: () => handleSelectQuantity(50) },
+                      { label: "100+ peças (Atacado 20% OFF)", action: () => handleSelectQuantity(100) },
+                    ],
+                    false,
+                    true
+                  );
+                },
               },
               {
                 label: "📋 Solicitar Orçamento",
                 action: () => handleRequestSnapshotQuote(),
+              },
+              {
+                label: "👁️ Ver Revisão Visual",
+                action: () => setIsReviewOpen(true),
               },
             ];
         addMessage("assistant", data.reply, followUpOptions, isSummary);
@@ -1705,6 +1772,7 @@ export function ChatConfigurator() {
           onViewSideChange={setViewSide}
           logoScale={logoScale}
           onLogoScaleChange={setLogoScale}
+          hasPocket={hasPocket}
         />
 
         {/* Resumo Rápido dos Detalhes Técnicos */}
@@ -1725,6 +1793,14 @@ export function ChatConfigurator() {
               {collarType}
             </span>
           </div>
+          {hasPocket && (
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-zinc-400">Acabamento:</span>
+              <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                Bolso no Peito
+              </span>
+            </div>
+          )}
           {collarColor && (
             <div className="flex items-center justify-between">
               <span className="text-slate-500 dark:text-zinc-400">Gola Contrastante:</span>
@@ -1779,7 +1855,7 @@ export function ChatConfigurator() {
       </div>
 
       {/* Lado Direito: Assistente Conversacional GH (7 colunas) */}
-      <div className="lg:col-span-7 flex flex-col h-[740px] rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xl overflow-hidden">
+      <div className="lg:col-span-7 flex flex-col h-[590px] rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xl overflow-hidden">
         {/* Topo do Chat */}
         <div className="p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/70 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1810,33 +1886,8 @@ export function ChatConfigurator() {
           </Button>
         </div>
 
-        {/* Sugestões Rápidas de Início */}
-        <div className="px-4 py-2.5 bg-slate-100/60 dark:bg-zinc-950/40 border-b border-slate-200/80 dark:border-zinc-800/80">
-          <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mb-1.5 flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3 text-[#d4af37]" />
-            Sugestões rápidas para começar:
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              "Quero 20 polos pretas com minha logo",
-              "Quero uniforme para meu time",
-              "Quero 50 camisetas personalizadas",
-              "Quero uniforme para minha empresa",
-            ].map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => handleSendMessage(suggestion)}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-[#d4af37] hover:text-[#d4af37] transition-all text-left shadow-2xs active:scale-95"
-              >
-                &ldquo;{suggestion}&rdquo;
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Área de Mensagens com Rolagem */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={chatScrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg) => (
             <div
               key={msg.id}

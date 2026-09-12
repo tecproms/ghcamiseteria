@@ -83,6 +83,7 @@ interface StructuredCommand {
     collarType?: string;
     collarColor?: { name: string; hex: string };
     sleeveColor?: { name: string; hex: string };
+    hasPocket?: boolean;
     quantity?: number;
     sizeDistribution?: Record<string, number>;
     logoUrl?: string | null;
@@ -114,6 +115,7 @@ interface InboundProject {
   collarType?: string;
   collarColor?: { name: string; hex: string } | null;
   sleeveColor?: { name: string; hex: string } | null;
+  hasPocket?: boolean;
   sizeDistribution?: Record<string, number>;
   logoUrl?: string | null;
   logoPosition?: "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA";
@@ -155,6 +157,7 @@ export async function POST(req: Request) {
       collarType: rawProject.collarType || "Gola Redonda",
       collarColor: rawProject.collarColor || null,
       sleeveColor: rawProject.sleeveColor || null,
+      hasPocket: Boolean(rawProject.hasPocket),
       sizeDistribution: rawProject.sizeDistribution || { P: 4, M: 8, G: 6, GG: 2 },
       logoUrl: rawProject.logoUrl || null,
       logoPosition: rawProject.logoPosition || "PEITO_ESQUERDO",
@@ -433,6 +436,35 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Defini o acabamento em **Gola Polo com Botões**.");
       }
 
+      // 5.5. Bolso no Peito
+      if (
+        lower.includes("com bolso") ||
+        lower.includes("adicione um bolso") ||
+        lower.includes("adicionar bolso") ||
+        lower.includes("coloca bolso") ||
+        lower.includes("colocar bolso") ||
+        lower.includes("adiciona bolso") ||
+        lower.includes("adicionou um bolso") ||
+        lower.includes("adicionou bolso") ||
+        lower.includes("bota bolso") ||
+        lower.includes("com um bolso") ||
+        (lower.includes("bolso") && !lower.includes("sem bolso") && !lower.includes("remover bolso") && !lower.includes("tirar bolso"))
+      ) {
+        action = "UPDATE_UNIFORM";
+        changes.hasPocket = true;
+        replyParts.push("Adicionei o acabamento de **Bolso no Peito** ao seu uniforme! O acabamento já está visível no manequim.");
+      } else if (
+        lower.includes("sem bolso") ||
+        lower.includes("tirar bolso") ||
+        lower.includes("remover bolso") ||
+        lower.includes("tira o bolso") ||
+        lower.includes("remove o bolso")
+      ) {
+        action = "UPDATE_UNIFORM";
+        changes.hasPocket = false;
+        replyParts.push("Removi o bolso frontal do uniforme.");
+      }
+
       // 6. Quantidade
       const qtyMatch = lower.match(/(\d+)\s*(pecas|peças|unidades|un|pessoas|camisas|polos)?/);
       if (qtyMatch && parseInt(qtyMatch[1], 10) > 0) {
@@ -458,6 +490,15 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
 
       // 7. Posição e Escala da Logo / Remoção
       const currentScale = currentProject.logoScale || 1.0;
+      const isDecreaseLogo =
+        /diminui|diminuir|reduz|reduzir|menor|pequen|abaix/i.test(lower) &&
+        /logo|marca|estampa|arte|tamanho|pouquinho|pouco|ela/i.test(lower);
+
+      const isIncreaseLogo =
+        !isDecreaseLogo &&
+        /aument|ampli|maior|cresc/i.test(lower) &&
+        /logo|marca|estampa|arte|tamanho|ela/i.test(lower);
+
       if (lower.includes("tirar a logo") || lower.includes("tira a logo") || lower.includes("remover a logo") || lower.includes("remove a logo") || lower.includes("sem logo")) {
         action = "UPDATE_LOGO";
         if (lower.includes("costas") || currentProject.logoPosition === "COSTAS") {
@@ -474,14 +515,16 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Identifiquei a sua logomarca! Ela foi anexada e aplicada diretamente no manequim 3D.");
       }
 
-      if (lower.includes("logo maior") || lower.includes("aumenta a logo") || lower.includes("aumentar logo") || lower.includes("maior")) {
+      if (isIncreaseLogo) {
         action = "UPDATE_LOGO";
-        changes.logoScale = Math.min(2.5, Math.round((currentScale + 0.25) * 100) / 100);
-        replyParts.push(`Aumentei o tamanho da sua logomarca para **${Math.round(changes.logoScale * 100)}%**.`);
-      } else if (lower.includes("logo menor") || lower.includes("diminui a logo") || lower.includes("diminuir logo") || lower.includes("menor")) {
+        const step = lower.includes("pouquinho") || lower.includes("pouco") ? 0.15 : 0.25;
+        changes.logoScale = Math.min(2.5, Math.round((currentScale + step) * 100) / 100);
+        replyParts.push(`Aumentei o tamanho da sua logomarca para **${Math.round(changes.logoScale * 100)}%** no manequim.`);
+      } else if (isDecreaseLogo) {
         action = "UPDATE_LOGO";
-        changes.logoScale = Math.max(0.4, Math.round((currentScale - 0.25) * 100) / 100);
-        replyParts.push(`Reduzi o tamanho da sua logomarca para **${Math.round(changes.logoScale * 100)}%**.`);
+        const step = lower.includes("pouquinho") || lower.includes("pouco") ? 0.15 : 0.25;
+        changes.logoScale = Math.max(0.4, Math.round((currentScale - step) * 100) / 100);
+        replyParts.push(`Reduzi o tamanho da sua logomarca para **${Math.round(changes.logoScale * 100)}%** no manequim.`);
       }
 
       const isRemovingLogo =
@@ -570,7 +613,6 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       // 11. Condução Consultiva Inteligente (Anti-Interrogatório)
       if (action !== "CALCULATE_QUOTE") {
         const isPurposeJustSelected = changes.purpose && !changes.model && !changes.color && !changes.quantity;
-        const hasLogoOrArt = !!(currentProject.logoUrl || body.hasUploadedLogo || changes.customText || currentProject.customText || lower.includes("logo") || lower.includes("anex"));
 
         if (isPurposeJustSelected) {
           if (changes.purpose === "TIME") {
@@ -582,12 +624,27 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
           } else {
             replyParts.push("Perfeito! Nossos modelos principais são **Camiseta Tradicional**, **Camisa Polo** e **Manga Longa**. Qual deles você gostaria de personalizar?");
           }
-        } else if (!hasLogoOrArt) {
-          replyParts.push("Você já possui a logomarca para aplicarmos? Pode anexá-la pelo botão do chat ou me dizer se deseja colocar no peito ou nas costas.");
-        } else if (!changes.quantity && (!currentProject.quantity || currentProject.quantity === 20)) {
-          replyParts.push("Quantas peças você estima produzir para o lote da equipe?");
-        } else if (replyParts.length === 0) {
-          replyParts.push("Entendido! Estou acompanhando cada detalhe do seu uniforme. O que mais gostaria de ajustar?");
+        } else {
+          const isEditingVisual = Boolean(
+            changes.model ||
+            changes.color ||
+            changes.collarType ||
+            changes.hasPocket !== undefined ||
+            changes.logoScale ||
+            changes.logoPosition ||
+            changes.customText ||
+            changes.customNumber
+          );
+
+          if (isEditingVisual) {
+            replyParts.push(
+              "O que gostaria de personalizar a seguir? Você pode escolher cores, gola, adicionar bolso, ajustar a logo ou avançar para definir as quantidades."
+            );
+          } else if (replyParts.length === 0) {
+            replyParts.push(
+              "Entendido! O que você gostaria de ajustar agora? Podemos alterar cores, gola, bolso, posição da logo ou avançar para as quantidades."
+            );
+          }
         }
       }
 
@@ -641,6 +698,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       customNumber: updatedCustomNumber,
       customNumberPosition: updatedCustomNumberPosition,
       viewSide: updatedViewSide,
+      hasPocket: validChanges.hasPocket !== undefined ? validChanges.hasPocket : Boolean(currentProject.hasPocket),
       sizeDistribution: validChanges.sizeDistribution || currentProject.sizeDistribution,
       purpose: validChanges.purpose || currentProject.purpose || null,
       fabric: validChanges.fabric || currentProject.fabric || null,
@@ -761,6 +819,10 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       }
     }
 
+    if (mergedProject.hasPocket) {
+      customizationDescriptions.push("Bolso Frontal no Peito");
+    }
+
     if (customizationDescriptions.length === 0) {
       customizationDescriptions.push("Sem personalizações adicionais");
     }
@@ -841,6 +903,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         customNumber: updatedCustomNumber,
         customNumberPosition: updatedCustomNumberPosition,
         viewSide: updatedViewSide,
+        hasPocket: mergedProject.hasPocket || false,
         sizeDistribution: mergedProject.sizeDistribution,
         purpose: mergedProject.purpose,
         fabric: mergedProject.fabric,
