@@ -4,6 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { PricingService } from "@/services/pricing/pricing.service";
+import type { CustomizerElement } from "@/types/configurator";
 
 // Catálogo Oficial de Modelos Válidos da Fábrica
 const VALID_MODELS = {
@@ -70,6 +71,10 @@ interface StructuredCommand {
     model?: "TRADITIONAL" | "POLO" | "MANGA_LONGA";
     modelType?: "TRADITIONAL" | "POLO" | "MANGA_LONGA";
     rejectedItem?: string;
+    purpose?: string;
+    fabric?: string;
+    desiredDeadline?: string;
+    observations?: string;
     color?: { name: string; hex: string };
     collarType?: string;
     collarColor?: { name: string; hex: string };
@@ -96,6 +101,10 @@ interface InboundMessage {
 interface InboundProject {
   model?: "TRADITIONAL" | "POLO" | "MANGA_LONGA";
   modelType?: "TRADITIONAL" | "POLO" | "MANGA_LONGA";
+  purpose?: string | null;
+  fabric?: string | null;
+  desiredDeadline?: string | null;
+  observations?: string | null;
   color?: { name: string; hex: string };
   collarType?: string;
   collarColor?: { name: string; hex: string } | null;
@@ -129,6 +138,10 @@ export async function POST(req: Request) {
     const currentProject = {
       model: rawProject.model || rawProject.modelType || "TRADITIONAL",
       modelType: rawProject.modelType || rawProject.model || "TRADITIONAL",
+      purpose: (rawProject.purpose as string) || null,
+      fabric: (rawProject.fabric as string) || null,
+      desiredDeadline: (rawProject.desiredDeadline as string) || null,
+      observations: (rawProject.observations as string) || null,
       color: rawProject.color || { name: "Branco Neve", hex: "#FFFFFF" },
       collarType: rawProject.collarType || "Gola Redonda",
       collarColor: rawProject.collarColor || null,
@@ -195,37 +208,41 @@ Não confeccionamos ${foundUnavailable}s. Posso te apresentar nossas **Camisas P
               {
                 role: "system",
                 content: `Você é o Consultor Técnico Especialista em Uniformes da "GH Camiseteria & Uniformes Personalizados".
-Conduza o diálogo com cordialidade e precisão industrial.
+Seu objetivo é orientar o cliente de forma consultiva, acolhedora e eficiente, como um alfaiate/consultor industrial de fábrica.
+
 Catálogo Oficial:
 - Modelos: "TRADITIONAL" (Camiseta Tradicional Meia Malha ou Dry Fit), "POLO" (Camisa Polo em Piquet), "MANGA_LONGA" (Manga Longa com ribana).
+- Tecidos: "Piquet Nobre Duplo 220g/m²" (empresas, formal), "Dry Fit 100% Poliéster" (times, esportes, atividades externas), "Meia Malha 100% Algodão Penteado 30.1" (dia a dia, macio).
 - Posições da logo: "PEITO_ESQUERDO", "CENTRO_FRONTAL", "PEITO_DIREITO", "COSTAS", "MANGA".
-- Vistas da foto: "FRONT", "BACK", "SLEEVE".
-- Golas: "Gola Redonda (Careca)", "Gola V Esportiva", "Gola Polo com Botões".
-- Cores: 24 cores têxteis reais (Preto Clássico #111827, Branco Neve #FFFFFF, Azul Marinho #1E3A8A, Azul Royal #1D4ED8, Vermelho Ferrari #DC2626, Cinza Mescla #9CA3AF, Grafite #374151, Verde Militar #3F6212, Vinho Bordô #881337, etc).
+- Cores: 24 cores têxteis reais (Preto Clássico, Branco Neve, Azul Marinho, Azul Royal, Vermelho Ferrari, Cinza Mescla, Grafite, Verde Militar, etc).
 
-Estado atual do uniforme:
+Regras de Atendimento do Consultor:
+1. NÃO FAÇA INTERROGATÓRIO: Pergunte apenas o que realmente estiver faltando para avançar. Se o cliente já informou dados (ex: "Quero 30 polos pretas"), NUNCA pergunte novamente quantidade, modelo ou cor.
+2. SUGESTÃO CONSULTIVA INTELIGENTE:
+   - Para times/esportes ou equipes externas: sugira ativamente "Dry Fit 100% Poliéster" com secagem rápida e proteção UV.
+   - Para empresas/escritórios: sugira "Camisa Polo em Piquet" ou "Camiseta em Algodão Penteado 30.1".
+   - Para eventos/promoções: sugira "Camiseta Tradicional".
+3. CATÁLOGO REAL: Se o cliente pedir algo fora de linha (jaquetas, jeans, moletom, boné), recuse educadamente e ofereça alternativas do nosso catálogo.
+4. NUNCA invente preços ou descontos. Preço é recalculado pelo servidor determinístico com action: "CALCULATE_QUOTE".
+5. Lembre de todo o contexto anterior do uniforme:
 ${JSON.stringify(currentProject, null, 2)}
-
-Você NÃO pode inventar preços, produtos ou condições comerciais.
-Se o cliente perguntar preço ou orçamento, a ação é "CALCULATE_QUOTE".
-Se pedir para aumentar ou diminuir a logo, atualize logoScale (ex: 1.25 ou 0.8).
-Se pedir texto nas costas (ex: "escreve BRAVO"), retorne customText e customTextPosition: "BACK".
-Se pedir número (ex: "número 10"), retorne customNumber e customNumberPosition: "BACK".
 
 SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } \`\`\`:
 \`\`\`json
 {
   "action": "UPDATE_UNIFORM" | "ADD_LOGO" | "UPDATE_LOGO" | "ADD_TEXT" | "ADD_NUMBER" | "CALCULATE_QUOTE",
   "changes": {
+    "purpose": "EMPRESA" | "TIME" | "EVENTO" | "OUTRO",
+    "fabric": "...",
     "model": "TRADITIONAL" | "POLO" | "MANGA_LONGA",
     "color": { "name": "...", "hex": "#..." },
     "collarType": "...",
     "quantity": 30,
     "logoPosition": "PEITO_ESQUERDO" | "CENTRO_FRONTAL" | "PEITO_DIREITO" | "COSTAS" | "MANGA",
     "logoScale": 1.0,
-    "customText": "BRAVO",
+    "customText": "...",
     "customTextPosition": "BACK",
-    "customNumber": "10",
+    "customNumber": "...",
     "customNumberPosition": "BACK",
     "viewSide": "FRONT" | "BACK" | "SLEEVE"
   }
@@ -257,13 +274,40 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       }
     }
 
-    // 3. Motor Heurístico de Alta Fidelidade (Garante 100% de funcionamento)
+    // 3. Motor Heurístico de Alta Fidelidade (Garante 100% de funcionamento e postura consultiva)
     if (!structuredCommand) {
       const changes: StructuredCommand["changes"] = {};
       let action: CommandAction = "UPDATE_UNIFORM";
       const replyParts: string[] = [];
 
-      // Modelo
+      // 1. Finalidade (Empresa, Time, Evento, Outro)
+      if (lower.includes("empresa") || lower.includes("corporativ") || lower.includes("escritorio") || lower.includes("trabalho") || lower.includes("firma")) {
+        changes.purpose = "EMPRESA";
+      } else if (lower.includes("time") || lower.includes("esporte") || lower.includes("futebol") || lower.includes("atlet") || lower.includes("corrida") || lower.includes("academia")) {
+        changes.purpose = "TIME";
+      } else if (lower.includes("evento") || lower.includes("festa") || lower.includes("promocao") || lower.includes("promocional") || lower.includes("congresso") || lower.includes("feiras")) {
+        changes.purpose = "EVENTO";
+      } else if (lower.includes("outra") || lower.includes("outro")) {
+        changes.purpose = "OUTRO";
+      }
+
+      // 2. Tecido
+      if (lower.includes("dry fit") || lower.includes("dryfit") || lower.includes("dry") || lower.includes("poliester") || lower.includes("poliéster")) {
+        changes.fabric = "Dry Fit 100% Poliéster";
+        changes.model = changes.model || "TRADITIONAL";
+        changes.modelType = changes.modelType || "TRADITIONAL";
+        replyParts.push("Defini o tecido em **Dry Fit 100% Poliéster**, com secagem rápida e proteção térmica.");
+      } else if (lower.includes("piquet") || lower.includes("piquet duplo")) {
+        changes.fabric = "Piquet Nobre Duplo 220g/m²";
+        changes.model = "POLO";
+        changes.modelType = "POLO";
+        replyParts.push("Defini o tecido em **Piquet Nobre Duplo 220g/m²**, padrão executivo alinhado.");
+      } else if (lower.includes("algodao") || lower.includes("algodão") || lower.includes("meia malha") || lower.includes("30.1")) {
+        changes.fabric = "Meia Malha 100% Algodão Penteado 30.1";
+        replyParts.push("Defini o tecido em **Meia Malha 100% Algodão Penteado 30.1**, macio e confortável.");
+      }
+
+      // 3. Modelo
       if (lower.includes("polo")) {
         changes.model = "POLO";
         changes.modelType = "POLO";
@@ -278,7 +322,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Atualizei o manequim para **Camiseta Tradicional** em meia malha penteada de alto conforto.");
       }
 
-      // Cor
+      // 4. Cor
       for (const catColor of CATALOG_COLORS) {
         if (catColor.aliases.some((alias) => lower.includes(alias))) {
           changes.color = { name: catColor.name, hex: catColor.hex };
@@ -287,7 +331,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         }
       }
 
-      // Gola
+      // 5. Gola
       if (lower.includes("gola v")) {
         changes.collarType = "Gola V Esportiva";
         replyParts.push("Defini o acabamento em **Gola V Esportiva**.");
@@ -299,7 +343,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Defini o acabamento em **Gola Polo com Botões**.");
       }
 
-      // Quantidade
+      // 6. Quantidade
       const qtyMatch = lower.match(/(\d+)\s*(pecas|peças|unidades|un|pessoas|camisas|polos)?/);
       if (qtyMatch && parseInt(qtyMatch[1], 10) > 0) {
         const qty = parseInt(qtyMatch[1], 10);
@@ -312,7 +356,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push(`Ajustei o lote para **${qty} unidades** com grade balanceada automática.`);
       }
 
-      // Posição e Escala da Logo
+      // 7. Posição e Escala da Logo
       const currentScale = currentProject.logoScale || 1.0;
       if (body.hasUploadedLogo || lower.includes("anexei") || lower.includes("anexar") || lower.includes("anexada") || lower.includes("enviei minha logo") || lower.includes("minha logo")) {
         action = "ADD_LOGO";
@@ -356,7 +400,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push("Girei o manequim para a **Manga Lateral**.");
       }
 
-      // Texto personalizado (ex: "Escreve BRAVO nas costas")
+      // 8. Texto personalizado (ex: "Escreve BRAVO nas costas")
       const textMatch = lower.match(/(escreve|escrever|nome|texto|frase)\s+["']?([^"'\n]+?)["']?\s*(nas costas|na frente|no peito)?$/);
       if (textMatch) {
         action = "ADD_TEXT";
@@ -366,7 +410,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push(`Inseri o texto **"${changes.customText}"** ${changes.customTextPosition === "BACK" ? "nas costas" : "na frente"}.`);
       }
 
-      // Número esportivo (ex: "Coloca o número 10")
+      // 9. Número esportivo (ex: "Coloca o número 10")
       const numMatch = lower.match(/(numero|número|num|nº)\s*(\d{1,2})/);
       if (numMatch) {
         action = "ADD_NUMBER";
@@ -376,14 +420,34 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push(`Adicionei o número dorsal **"${changes.customNumber}"** nas costas.`);
       }
 
-      // Pergunta de Orçamento / Preço
+      // 10. Pergunta de Orçamento / Preço
       if (lower.includes("quanto fica") || lower.includes("preco") || lower.includes("preço") || lower.includes("orcamento") || lower.includes("orçamento") || lower.includes("valor")) {
         action = "CALCULATE_QUOTE";
         replyParts.push("Calculei os valores exatos com o nosso motor industrial de preços. O resumo e o botão de WhatsApp já estão disponíveis abaixo!");
       }
 
-      if (replyParts.length === 0) {
-        replyParts.push("Entendido! Estou acompanhando cada especificação do seu uniforme. O que mais gostaria de ajustar (cor, modelo, quantidade, logo ou textos)?");
+      // 11. Condução Consultiva Inteligente (Anti-Interrogatório)
+      if (action !== "CALCULATE_QUOTE") {
+        const isPurposeJustSelected = changes.purpose && !changes.model && !changes.color && !changes.quantity;
+        const hasLogoOrArt = !!(currentProject.logoUrl || body.hasUploadedLogo || changes.customText || currentProject.customText || lower.includes("logo") || lower.includes("anex"));
+
+        if (isPurposeJustSelected) {
+          if (changes.purpose === "TIME") {
+            replyParts.push("Show de bola! Para times e equipes esportivas, temos o tecido **Dry Fit 100% Poliéster** com secagem rápida e proteção UV. Gostaria de montar na Camiseta Dry Fit ou prefere outro modelo?");
+          } else if (changes.purpose === "EMPRESA") {
+            replyParts.push("Excelente! Para equipes e empresas, nossas opções mais buscadas são a **Camisa Polo em Piquet Nobre** (mais formal e alinhada) ou a **Camiseta Tradicional em Meia Malha Penteada 30.1**. Qual combina mais com o estilo da sua equipe?");
+          } else if (changes.purpose === "EVENTO") {
+            replyParts.push("Perfeito! Para eventos e ações comemorativas, a **Camiseta Tradicional** oferece o melhor custo-benefício e caimento. Gostaria de ver em algodão ou prefere polo?");
+          } else {
+            replyParts.push("Perfeito! Nossos modelos principais são **Camiseta Tradicional**, **Camisa Polo** e **Manga Longa**. Qual deles você gostaria de personalizar?");
+          }
+        } else if (!hasLogoOrArt) {
+          replyParts.push("Você já possui a logomarca para aplicarmos? Pode anexá-la pelo botão do chat ou me dizer se deseja colocar no peito ou nas costas.");
+        } else if (!changes.quantity && (!currentProject.quantity || currentProject.quantity === 20)) {
+          replyParts.push("Quantas peças você estima produzir para o lote da equipe?");
+        } else if (replyParts.length === 0) {
+          replyParts.push("Entendido! Estou acompanhando cada detalhe do seu uniforme. O que mais gostaria de ajustar?");
+        }
       }
 
       structuredCommand = {
@@ -437,20 +501,24 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       customNumberPosition: updatedCustomNumberPosition,
       viewSide: updatedViewSide,
       sizeDistribution: validChanges.sizeDistribution || currentProject.sizeDistribution,
+      purpose: validChanges.purpose || currentProject.purpose || null,
+      fabric: validChanges.fabric || currentProject.fabric || null,
+      desiredDeadline: validChanges.desiredDeadline || currentProject.desiredDeadline || null,
+      observations: validChanges.observations || currentProject.observations || null,
     };
 
     // 5. Cálculo Oficial de Preços com o PricingService do Servidor
     const modelBaseName = VALID_MODELS[mergedProject.model]?.shortName || "Camiseta Tradicional";
 
-    const frontCustomizations = [];
-    const backCustomizations = [];
+    const frontCustomizations: CustomizerElement[] = [];
+    const backCustomizations: CustomizerElement[] = [];
 
     if (mergedProject.logoUrl) {
       if (mergedProject.logoPosition === "COSTAS") {
         backCustomizations.push({
           id: "logo-back",
-          type: "IMAGE" as const,
-          viewSide: "BACK" as const,
+          type: "IMAGE",
+          viewSide: "BACK",
           zoneId: "COSTAS",
           x: 0,
           y: 0,
@@ -463,8 +531,8 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       } else {
         frontCustomizations.push({
           id: "logo-front",
-          type: "IMAGE" as const,
-          viewSide: "FRONT" as const,
+          type: "IMAGE",
+          viewSide: "FRONT",
           zoneId: mergedProject.logoPosition || "PEITO_ESQUERDO",
           x: 0,
           y: 0,
@@ -479,40 +547,46 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
 
     if (mergedProject.customText) {
       const isBack = mergedProject.customTextPosition === "BACK";
-      const item = {
+      const item: CustomizerElement = {
         id: "text-1",
-        type: "TEXT" as const,
-        viewSide: isBack ? ("BACK" as const) : ("FRONT" as const),
+        type: "TEXT",
+        viewSide: isBack ? "BACK" : "FRONT",
         zoneId: isBack ? "COSTAS" : "CENTRO_FRONTAL",
         x: 0,
         y: 0,
-        width: 100,
-        height: 50,
+        width: 140,
+        height: 40,
         rotation: 0,
         scaleX: 1,
         scaleY: 1,
+        text: mergedProject.customText,
       };
       if (isBack) backCustomizations.push(item);
       else frontCustomizations.push(item);
     }
 
     if (mergedProject.customNumber) {
-      backCustomizations.push({
+      const isBack = mergedProject.customNumberPosition === "BACK";
+      const item: CustomizerElement = {
         id: "num-1",
-        type: "NUMBER" as const,
-        viewSide: "BACK" as const,
-        zoneId: "COSTAS",
+        type: "NUMBER",
+        viewSide: isBack ? "BACK" : "FRONT",
+        zoneId: isBack ? "COSTAS" : "CENTRO_FRONTAL",
         x: 0,
         y: 0,
-        width: 80,
-        height: 80,
+        width: 100,
+        height: 60,
         rotation: 0,
         scaleX: 1,
         scaleY: 1,
-      });
+        text: mergedProject.customNumber,
+      };
+      if (isBack) backCustomizations.push(item);
+      else frontCustomizations.push(item);
     }
 
     const basePricing = await PricingService.calculate({
+      shirtModelId: mergedProject.model,
       modelName: modelBaseName,
       quantity: mergedProject.quantity,
       views: {
@@ -521,46 +595,40 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       },
     });
 
-    const unitPrice = basePricing.unitPrice || (mergedProject.model === "POLO" ? 48.0 : 35.0);
-    const totalPrice = basePricing.total || unitPrice * mergedProject.quantity;
+    const unitPrice = typeof basePricing?.unitPrice === "number" ? basePricing.unitPrice : (mergedProject.model === "POLO" ? 48.0 : 35.0);
+    const totalPrice = typeof basePricing?.total === "number" ? basePricing.total : unitPrice * mergedProject.quantity;
 
-    // Formatar grade de tamanhos
-    let sizeBreakdownStr = "";
-    if (mergedProject.sizeDistribution && typeof mergedProject.sizeDistribution === "object") {
-      const parts = Object.entries(mergedProject.sizeDistribution)
-        .filter(([, q]) => Number(q) > 0)
-        .map(([sz, q]) => `${q}x ${sz}`);
-      if (parts.length > 0) {
-        sizeBreakdownStr = parts.join(", ");
-      }
-    }
+    const sizeBreakdownStr = Object.entries(mergedProject.sizeDistribution || {})
+      .filter(([, qty]) => typeof qty === "number" && qty > 0)
+      .map(([sz, qty]) => `${qty}x ${sz}`)
+      .join(", ");
 
-    const sizeLine = sizeBreakdownStr
-      ? `📏 *Grade de Tamanhos:* ${sizeBreakdownStr} (Total: ${mergedProject.quantity} un.)\n`
-      : `📦 *Quantidade:* ${mergedProject.quantity} unidades\n`;
-
-    const collarLine = mergedProject.collarType
-      ? `👔 *Tipo de Gola:* ${mergedProject.collarType}\n`
-      : "";
-
+    const collarLine = mergedProject.collarType ? `👔 *Tipo de Gola:* ${mergedProject.collarType}\n` : "";
+    const purposeLine = mergedProject.purpose ? `🎯 *Finalidade:* ${mergedProject.purpose}\n` : "";
+    const fabricLine = mergedProject.fabric ? `🧵 *Tecido Escolhido:* ${mergedProject.fabric}\n` : "";
     const contrastLine =
       mergedProject.collarColor || mergedProject.sleeveColor
-        ? `🎨 *Detalhes Bicolor:* Gola: ${mergedProject.collarColor?.name || mergedProject.color.name} | Mangas: ${mergedProject.sleeveColor?.name || mergedProject.color.name}\n`
+        ? `✨ *Contrastes:* ${mergedProject.collarColor ? `Gola: ${mergedProject.collarColor.name}` : ""} ${
+            mergedProject.sleeveColor ? `| Manga: ${mergedProject.sleeveColor.name}` : ""
+          }\n`
         : "";
-
     const textLine = mergedProject.customText
       ? `✍️ *Texto Estampado:* "${mergedProject.customText}" (${mergedProject.customTextPosition === "BACK" ? "Costas" : "Frente"})\n`
       : "";
-
     const numLine = mergedProject.customNumber
-      ? `🔢 *Número Dorsal:* ${mergedProject.customNumber} (Costas)\n`
+      ? `🔢 *Número Dorsal:* ${mergedProject.customNumber} (${mergedProject.customNumberPosition === "BACK" ? "Costas" : "Frente"})\n`
+      : "";
+    const sizeLine = sizeBreakdownStr
+      ? `📏 *Grade de Tamanhos:* ${sizeBreakdownStr} (Total: ${mergedProject.quantity} un.)\n`
       : "";
 
     // Mensagem Oficial para o WhatsApp da Fábrica
     const whatsAppText =
       `Olá, equipe da *GH Camiseteria*! 👋\n\n` +
       `Montei meu uniforme no consultor virtual do site e gostaria de formalizar meu orçamento:\n\n` +
+      purposeLine +
       `👕 *Modelo:* ${modelBaseName}\n` +
+      fabricLine +
       collarLine +
       `🎨 *Cor Principal:* ${mergedProject.color.name} (${mergedProject.color.hex})\n` +
       contrastLine +
@@ -588,10 +656,15 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         customNumberPosition: updatedCustomNumberPosition,
         viewSide: updatedViewSide,
         sizeDistribution: mergedProject.sizeDistribution,
+        purpose: mergedProject.purpose,
+        fabric: mergedProject.fabric,
+        desiredDeadline: mergedProject.desiredDeadline,
+        observations: mergedProject.observations,
       },
       quoteSummary: {
         modelName: modelBaseName,
-        fabricDescription: VALID_MODELS[mergedProject.model]?.fabric,
+        fabricDescription: mergedProject.fabric || VALID_MODELS[mergedProject.model]?.fabric,
+        purpose: mergedProject.purpose,
         colorName: mergedProject.color.name,
         colorHex: mergedProject.color.hex,
         collarType: mergedProject.collarType,

@@ -112,6 +112,10 @@ export function ChatConfigurator() {
   const [customNumber, setCustomNumber] = useState<string>("");
   const [customNumberPosition, setCustomNumberPosition] = useState<"FRONT" | "BACK">("BACK");
 
+  const [purpose, setPurpose] = useState<string>("");
+  const [fabric, setFabric] = useState<string>("");
+  const [desiredDeadline, setDesiredDeadline] = useState<string>("");
+
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummaryData | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -120,24 +124,28 @@ export function ChatConfigurator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
-  // Histórico de Mensagens do Chat
+  // Histórico de Mensagens do Chat - Abertura Consultiva
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
       role: "assistant",
-      text: "Olá! 👋 Sou o consultor virtual da **GH Camiseteria**. Vou te ajudar a montar o uniforme perfeito para a sua empresa ou equipe com **fotos reais de estúdio**!\n\nPara começar, **qual modelo de uniforme** você procura hoje?",
+      text: "Olá! 👋 Vamos montar seu uniforme. É para empresa, time, evento ou outra finalidade?",
       options: [
         {
-          label: "👕 Camiseta Tradicional",
-          action: () => handleSelectModel("TRADITIONAL", "Camiseta Tradicional"),
+          label: "🏢 Empresa / Corporativo",
+          action: () => handleSelectPurpose("EMPRESA", "Quero montar uniforme para minha empresa"),
         },
         {
-          label: "👔 Camisa Polo Piquet",
-          action: () => handleSelectModel("POLO", "Camisa Polo Piquet"),
+          label: "⚽ Time / Equipe Esportiva",
+          action: () => handleSelectPurpose("TIME", "Quero montar uniforme para meu time"),
         },
         {
-          label: "🧥 Manga Longa",
-          action: () => handleSelectModel("MANGA_LONGA", "Manga Longa"),
+          label: "🎉 Evento / Promocional",
+          action: () => handleSelectPurpose("EVENTO", "Quero montar camisetas para um evento"),
+        },
+        {
+          label: "👕 Outra finalidade",
+          action: () => handleSelectPurpose("OUTRO", "Quero montar uniforme para outra finalidade"),
         },
       ],
     },
@@ -146,6 +154,11 @@ export function ChatConfigurator() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  const handleSelectPurpose = (selectedPurpose: string, promptText: string) => {
+    setPurpose(selectedPurpose);
+    handleSendMessage(promptText);
+  };
 
   // Passo 1: Selecionar Modelo
   const handleSelectModel = (type: MockupModelType, label: string) => {
@@ -421,6 +434,9 @@ export function ChatConfigurator() {
             customNumber,
             customNumberPosition,
             viewSide,
+            purpose,
+            fabric,
+            desiredDeadline,
           },
         }),
       });
@@ -429,6 +445,9 @@ export function ChatConfigurator() {
       if (data.success) {
         // Aplicar mudanças retornadas pelo motor de comandos estruturados
         const changes = data.command?.changes || data.updatedProject || {};
+        if (changes.purpose) setPurpose(changes.purpose);
+        if (changes.fabric) setFabric(changes.fabric);
+        if (changes.desiredDeadline) setDesiredDeadline(changes.desiredDeadline);
         if (changes.model) setModelType(changes.model);
         if (changes.color) setColor(changes.color);
         if (changes.collarType) setCollarType(changes.collarType);
@@ -1016,15 +1035,18 @@ export function ChatConfigurator() {
 
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
         <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
-          <span className="text-slate-500 dark:text-zinc-400 font-medium">Modelo / Malha:</span>
+          <span className="text-slate-500 dark:text-zinc-400 font-medium">Modelo & Padrão:</span>
           <p className="font-bold text-slate-900 dark:text-white mt-0.5">
             {modelType === "POLO"
-              ? "Camisa Polo Piquet 220g"
+              ? "Camisa Polo Piquet"
               : modelType === "MANGA_LONGA"
               ? "Manga Longa com Ribana"
-              : "Camiseta Tradicional 30.1"}
+              : "Camiseta Tradicional"}
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">Gola: {collarType}</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 truncate">
+            {purpose ? `Uso: ${purpose} • ` : ""}
+            {fabric ? fabric : `Gola: ${collarType}`}
+          </p>
         </div>
 
         <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
