@@ -12,8 +12,11 @@ interface PhotorealisticMockupProps {
   modelType: MockupModelType;
   color: { name: string; hex: string };
   logoUrl?: string | null;
-  logoPosition?: LogoPositionType;
+  logoPosition?: LogoPositionType | "COSTAS" | "MANGA";
   customText?: string;
+  customTextPosition?: "FRONT" | "BACK";
+  customNumber?: string;
+  customNumberPosition?: "FRONT" | "BACK";
   className?: string;
   viewSide?: MockupViewSide;
   onViewSideChange?: (side: MockupViewSide) => void;
@@ -104,6 +107,9 @@ export function PhotorealisticMockup({
   logoUrl,
   logoPosition = "PEITO_ESQUERDO",
   customText,
+  customTextPosition = "BACK",
+  customNumber,
+  customNumberPosition = "BACK",
   className = "",
   viewSide,
   onViewSideChange,
@@ -295,10 +301,50 @@ export function PhotorealisticMockup({
       const size = 1000;
       const viewCoords = LOGO_COORDINATES[currentView] || LOGO_COORDINATES.FRONT;
       const modelCoords = viewCoords[modelType] || viewCoords.TRADITIONAL;
-      const coords = modelCoords[logoPosition] || modelCoords.PEITO_ESQUERDO;
+      const coords = modelCoords[logoPosition as LogoPositionType] || modelCoords.PEITO_ESQUERDO;
 
-      // Se houver logo anexada
-      if (logoUrl) {
+      const shouldShowLogo =
+        !!logoUrl &&
+        ((currentView === "BACK" && logoPosition === "COSTAS") ||
+          (currentView === "SLEEVE" && logoPosition === "MANGA") ||
+          (currentView === "FRONT" && logoPosition !== "COSTAS" && logoPosition !== "MANGA"));
+
+      const drawTextAndNumber = () => {
+        if (!ctx) return;
+        const isDark = hexToRgb(color.hex).r < 120;
+        const textColor = isDark ? "#FFFFFF" : "#1E293B";
+
+        // Renderizar Texto se a posição coincidir com a visão atual
+        if (customText && customText.trim() && customTextPosition === currentView) {
+          ctx.save();
+          ctx.font =
+            currentView === "BACK"
+              ? "900 42px 'Inter', sans-serif"
+              : "bold 30px 'Inter', sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = textColor;
+          ctx.globalAlpha = 0.95;
+          const textY = currentView === "BACK" ? size * 0.28 : size * 0.44;
+          ctx.fillText(customText.toUpperCase(), size * 0.5, textY);
+          ctx.restore();
+        }
+
+        // Renderizar Número se a posição coincidir com a visão atual
+        if (customNumber && customNumber.trim() && customNumberPosition === currentView) {
+          ctx.save();
+          ctx.font = "900 120px 'Inter', sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = textColor;
+          ctx.globalAlpha = 0.95;
+          const numY = customText && customTextPosition === currentView ? size * 0.54 : size * 0.48;
+          ctx.fillText(customNumber, size * 0.5, numY);
+          ctx.restore();
+        }
+      };
+
+      if (shouldShowLogo && logoUrl) {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
         logoImg.src = logoUrl;
@@ -319,33 +365,16 @@ export function PhotorealisticMockup({
           ctx.drawImage(logoImg, centerX - w / 2, centerY - h / 2, w, h);
           ctx.restore();
 
+          drawTextAndNumber();
           finishRender();
         };
         logoImg.onerror = () => {
+          drawTextAndNumber();
           finishRender();
         };
       } else {
-        // Se não houver logo, mas tiver texto personalizado
-        if (customText && customText.trim()) {
-          renderCustomText();
-        }
+        drawTextAndNumber();
         finishRender();
-      }
-
-      function renderCustomText() {
-        if (!customText || !ctx) return;
-        const centerX = size * coords.xPct;
-        const centerY = size * coords.yPct;
-
-        ctx.save();
-        ctx.font = "bold 28px 'Inter', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        const isDark = hexToRgb(color.hex).r < 120;
-        ctx.fillStyle = isDark ? "#FFFFFF" : "#1E293B";
-        ctx.fillText(customText.toUpperCase(), centerX, centerY);
-        ctx.restore();
       }
 
       function finishRender() {
@@ -365,7 +394,19 @@ export function PhotorealisticMockup({
     return () => {
       isCancelled = true;
     };
-  }, [modelType, currentView, currentScale, color, logoUrl, logoPosition, customText, onImageRendered]);
+  }, [
+    modelType,
+    currentView,
+    currentScale,
+    color,
+    logoUrl,
+    logoPosition,
+    customText,
+    customTextPosition,
+    customNumber,
+    customNumberPosition,
+    onImageRendered,
+  ]);
 
   const handleDownload = () => {
     if (!renderedUrl) return;

@@ -14,6 +14,7 @@ import {
   Loader2,
   Plus,
   Minus,
+  Shirt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ interface ChatMessage {
 
 interface QuoteSummaryData {
   modelName: string;
+  fabricDescription?: string;
   colorName: string;
   colorHex: string;
   collarType?: string;
@@ -42,6 +44,9 @@ interface QuoteSummaryData {
   sleeveColorName?: string;
   sizeBreakdown?: string;
   logoPosition: string;
+  logoScale?: number;
+  customText?: string;
+  customNumber?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -91,7 +96,7 @@ export function ChatConfigurator() {
     hex: "#FFFFFF",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoPosition, setLogoPosition] = useState<LogoPositionType>("PEITO_ESQUERDO");
+  const [logoPosition, setLogoPosition] = useState<LogoPositionType | "COSTAS" | "MANGA">("PEITO_ESQUERDO");
   const [quantity, setQuantity] = useState<number>(20);
   const [sizeDistribution, setSizeDistribution] = useState<Record<string, number>>({
     PP: 0,
@@ -103,6 +108,9 @@ export function ChatConfigurator() {
     XXG: 0,
   });
   const [customText, setCustomText] = useState<string>("");
+  const [customTextPosition, setCustomTextPosition] = useState<"FRONT" | "BACK">("BACK");
+  const [customNumber, setCustomNumber] = useState<string>("");
+  const [customNumberPosition, setCustomNumberPosition] = useState<"FRONT" | "BACK">("BACK");
 
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummaryData | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -380,12 +388,12 @@ export function ChatConfigurator() {
     reader.readAsDataURL(file);
   };
 
-  // Enviar Mensagem de Texto Livre
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+  // Enviar Mensagem de Texto Livre ou Sugestão Rápida
+  const handleSendMessage = async (customPrompt?: string) => {
+    const userText = (customPrompt || inputText).trim();
+    if (!userText) return;
 
-    const userText = inputText.trim();
-    setInputText("");
+    if (!customPrompt) setInputText("");
     addMessage("user", userText);
 
     setIsTyping(true);
@@ -409,25 +417,44 @@ export function ChatConfigurator() {
             logoScale,
             quantity,
             customText,
+            customTextPosition,
+            customNumber,
+            customNumberPosition,
+            viewSide,
           },
         }),
       });
 
       const data = await res.json();
       if (data.success) {
-        if (data.updatedProject?.model) setModelType(data.updatedProject.model);
-        if (data.updatedProject?.color) setColor(data.updatedProject.color);
-        if (data.updatedProject?.collarType) setCollarType(data.updatedProject.collarType);
-        if (data.updatedProject?.logoPosition) setLogoPosition(data.updatedProject.logoPosition);
-        if (data.updatedProject?.quantity) setQuantity(data.updatedProject.quantity);
+        // Aplicar mudanças retornadas pelo motor de comandos estruturados
+        const changes = data.command?.changes || data.updatedProject || {};
+        if (changes.model) setModelType(changes.model);
+        if (changes.color) setColor(changes.color);
+        if (changes.collarType) setCollarType(changes.collarType);
+        if (changes.collarColor !== undefined) setCollarColor(changes.collarColor);
+        if (changes.sleeveColor !== undefined) setSleeveColor(changes.sleeveColor);
+        if (changes.quantity) setQuantity(changes.quantity);
+        if (changes.sizeDistribution) setSizeDistribution(changes.sizeDistribution);
+        if (changes.logoPosition) setLogoPosition(changes.logoPosition);
+        if (changes.logoScale !== undefined) setLogoScale(changes.logoScale);
+        if (changes.customText !== undefined) setCustomText(changes.customText);
+        if (changes.customTextPosition) setCustomTextPosition(changes.customTextPosition);
+        if (changes.customNumber !== undefined) setCustomNumber(changes.customNumber);
+        if (changes.customNumberPosition) setCustomNumberPosition(changes.customNumberPosition);
+        if (changes.viewSide) setViewSide(changes.viewSide);
 
         if (data.quoteSummary) {
           setQuoteSummary(data.quoteSummary);
         }
 
-        addMessage("assistant", data.reply);
+        const isSummary = data.command?.action === "CALCULATE_QUOTE";
+        addMessage("assistant", data.reply, undefined, isSummary);
       } else {
-        addMessage("assistant", "Compreendi o seu pedido! Você gostaria de ajustar mais algum detalhe ou já podemos compilar o orçamento final?");
+        addMessage(
+          "assistant",
+          "Compreendi o seu pedido! Você gostaria de ajustar mais algum detalhe ou já podemos compilar o orçamento final?"
+        );
       }
     } catch {
       addMessage("assistant", "Entendido! O mockup fotográfico já está atualizado com as suas escolhas.");
@@ -524,6 +551,9 @@ export function ChatConfigurator() {
     setQuantity(20);
     setSizeDistribution({ PP: 0, P: 4, M: 8, G: 6, GG: 2, XG: 0, XXG: 0 });
     setCustomText("");
+    setCustomTextPosition("BACK");
+    setCustomNumber("");
+    setCustomNumberPosition("BACK");
     setQuoteSummary(null);
     setMessages([
       {
@@ -549,7 +579,7 @@ export function ChatConfigurator() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="space-y-6">
       {/* Input de arquivo oculto para upload de logo */}
       <input
         type="file"
@@ -570,6 +600,9 @@ export function ChatConfigurator() {
         }}
         className="hidden"
       />
+
+      {/* Grid Principal: Lado Esquerdo Mockup (Desktop) / Lado Direito Chat */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
       {/* Lado Esquerdo: Mockup Fotográfico de Estúdio em Tempo Real (5 colunas) */}
       <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
@@ -597,6 +630,9 @@ export function ChatConfigurator() {
           logoUrl={logoUrl}
           logoPosition={logoPosition}
           customText={customText}
+          customTextPosition={customTextPosition}
+          customNumber={customNumber}
+          customNumberPosition={customNumberPosition}
           viewSide={viewSide}
           onViewSideChange={setViewSide}
           logoScale={logoScale}
@@ -704,6 +740,31 @@ export function ChatConfigurator() {
             <Upload className="h-3.5 w-3.5 text-[#d4af37]" />
             <span className="hidden sm:inline">Anexar Logo</span>
           </Button>
+        </div>
+
+        {/* Sugestões Rápidas de Início */}
+        <div className="px-4 py-2.5 bg-slate-100/60 dark:bg-zinc-950/40 border-b border-slate-200/80 dark:border-zinc-800/80">
+          <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mb-1.5 flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-[#d4af37]" />
+            Sugestões rápidas para começar:
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              "Quero 20 polos pretas com minha logo",
+              "Quero uniforme para meu time",
+              "Quero 50 camisetas personalizadas",
+              "Quero uniforme para minha empresa",
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => handleSendMessage(suggestion)}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-[#d4af37] hover:text-[#d4af37] transition-all text-left shadow-2xs active:scale-95"
+              >
+                &ldquo;{suggestion}&rdquo;
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Área de Mensagens com Rolagem */}
@@ -923,7 +984,7 @@ export function ChatConfigurator() {
           />
 
           <Button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!inputText.trim() || isTyping}
             className="h-10 px-4 bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold shrink-0 shadow-md gap-1.5"
           >
@@ -933,5 +994,121 @@ export function ChatConfigurator() {
         </div>
       </div>
     </div>
-  );
+
+    {/* PARTE INFERIOR: Resumo Completo da Configuração Atual (Desktop: abaixo de ambas as colunas; Celular: após o chat) */}
+    <div className="mt-8 p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-lg space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 dark:border-zinc-800 gap-3">
+        <div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Shirt className="h-5 w-5 text-[#d4af37]" />
+            Resumo da Configuração Atual
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-zinc-400">
+            Ficha técnica industrial e orçamento calculados em tempo real pelo servidor
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 shadow-2xs">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Ficha Técnica Ativa
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
+          <span className="text-slate-500 dark:text-zinc-400 font-medium">Modelo / Malha:</span>
+          <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+            {modelType === "POLO"
+              ? "Camisa Polo Piquet 220g"
+              : modelType === "MANGA_LONGA"
+              ? "Manga Longa com Ribana"
+              : "Camiseta Tradicional 30.1"}
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">Gola: {collarType}</p>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
+          <span className="text-slate-500 dark:text-zinc-400 font-medium">Cores do Uniforme:</span>
+          <div className="flex items-center gap-2 mt-1">
+            <span
+              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs shrink-0"
+              style={{ backgroundColor: color.hex }}
+            />
+            <span className="font-bold text-slate-900 dark:text-white truncate">{color.name}</span>
+          </div>
+          {(collarColor || sleeveColor) && (
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+              {collarColor ? `Gola: ${collarColor.name} ` : ""}
+              {sleeveColor ? `| Manga: ${sleeveColor.name}` : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
+          <span className="text-slate-500 dark:text-zinc-400 font-medium">Estamparia & Logo:</span>
+          <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+            {logoPosition === "PEITO_ESQUERDO"
+              ? "Peito Esquerdo"
+              : logoPosition === "CENTRO_FRONTAL"
+              ? "Centro Frontal"
+              : logoPosition === "COSTAS"
+              ? "Costas (Amplo)"
+              : logoPosition === "MANGA"
+              ? "Manga Lateral"
+              : "Peito Direito"}
+            {logoUrl ? ` (${Math.round(logoScale * 100)}%)` : " (Pendente)"}
+          </p>
+          {(customText || customNumber) && (
+            <p className="text-[11px] text-[#d4af37] font-semibold mt-1 truncate">
+              {customText ? `Texto: "${customText}" ` : ""}
+              {customNumber ? `Nº: ${customNumber}` : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60">
+          <span className="text-slate-500 dark:text-zinc-400 font-medium">Volume & Tamanhos:</span>
+          <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+            {quantity} unidades
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 truncate">
+            {Object.entries(sizeDistribution)
+              .filter(([, q]) => q > 0)
+              .map(([sz, q]) => `${q}x ${sz}`)
+              .join(" | ") || "Grade padrão"}
+          </p>
+        </div>
+      </div>
+
+      {/* Investimento Oficial e Botão de WhatsApp */}
+      {quoteSummary && (
+        <div className="mt-2 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-5">
+            <div>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400">Preço Unitário Oficial:</span>
+              <p className="text-base font-bold text-slate-900 dark:text-white">
+                R$ {quoteSummary.unitPrice.toFixed(2)}
+              </p>
+            </div>
+            <div className="h-8 w-px bg-slate-200 dark:bg-zinc-800" />
+            <div>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400">Investimento Total ({quantity} un):</span>
+              <p className="text-xl font-black text-amber-600 dark:text-[#d4af37]">
+                R$ {quoteSummary.totalPrice.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleOpenWhatsApp}
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-6 gap-2 shadow-md"
+          >
+            <Share2 className="h-4 w-4" />
+            Finalizar no WhatsApp da Fábrica
+          </Button>
+        </div>
+      )}
+    </div>
+  </div>
+);
 }

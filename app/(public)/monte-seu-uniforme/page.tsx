@@ -17,10 +17,10 @@ export default function MonteSeuUniformePage() {
             Personalização de Alta Fidelidade com IA
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Monte seu Uniforme Personalizado
+            Monte seu uniforme conversando com a gente
           </h1>
           <p className="mt-1.5 text-sm text-slate-600 dark:text-zinc-400 max-w-2xl">
-            Converse com o consultor virtual da GH Camiseteria, escolha o modelo, veja em fotos reais de estúdio com acabamento fabril e solicite seu orçamento com facilidade.
+            Conte como você imagina seu uniforme e nosso consultor virtual monta tudo para você.
           </p>
         </div>
 
