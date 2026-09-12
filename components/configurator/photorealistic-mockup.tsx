@@ -18,9 +18,9 @@ interface PhotorealisticMockupProps {
 }
 
 const MODEL_IMAGES: Record<MockupModelType, string> = {
-  TRADITIONAL: "/mockups/studio-tshirt.jpg",
-  POLO: "/mockups/studio-polo.jpg",
-  MANGA_LONGA: "/mockups/studio-longsleeve.jpg",
+  TRADITIONAL: "/mockups/studio-tshirt.png",
+  POLO: "/mockups/studio-polo.png",
+  MANGA_LONGA: "/mockups/studio-longsleeve.png",
 };
 
 // Posições percentuais de aplicação realista (x%, y% do canvas centralizado)
@@ -107,53 +107,57 @@ export function PhotorealisticMockup({
         const imgData = tempCtx.getImageData(0, 0, size, size);
         const data = imgData.data;
 
-        // BFS Flood Fill a partir dos 4 cantos para zerar alpha apenas do fundo externo
-        const visited = new Uint8Array(size * size);
-        const queue: number[] = [];
+        // Verificar se a imagem já possui transparência alfa nativa (PNG de estúdio)
+        const hasNativeAlpha = data[3] === 0 || data[((size - 1) * size + (size - 1)) * 4 + 3] === 0;
 
-        // Adicionar bordas externas na fila
-        for (let x = 0; x < size; x++) {
-          queue.push(x, (size - 1) * size + x);
-          visited[x] = 1;
-          visited[(size - 1) * size + x] = 1;
-        }
-        for (let y = 0; y < size; y++) {
-          queue.push(y * size, y * size + (size - 1));
-          visited[y * size] = 1;
-          visited[y * size + (size - 1)] = 1;
-        }
+        if (!hasNativeAlpha) {
+          // BFS Flood Fill a partir das 4 bordas com limiar seguro (>= 250)
+          // Isso garante que o fundo puro de estúdio seja isolado sem vazar para o tecido
+          const visited = new Uint8Array(size * size);
+          const queue: number[] = [];
 
-        let head = 0;
-        while (head < queue.length) {
-          const idx = queue[head++];
-          const p = idx * 4;
-          const r = data[p];
-          const g = data[p + 1];
-          const b = data[p + 2];
+          for (let x = 0; x < size; x++) {
+            queue.push(x, (size - 1) * size + x);
+            visited[x] = 1;
+            visited[(size - 1) * size + x] = 1;
+          }
+          for (let y = 0; y < size; y++) {
+            queue.push(y * size, y * size + (size - 1));
+            visited[y * size] = 1;
+            visited[y * size + (size - 1)] = 1;
+          }
 
-          // Se for pixel quase branco de fundo de estúdio (> 240)
-          if (r > 240 && g > 240 && b > 240) {
-            data[p + 3] = 0; // Torna transparente
+          let head = 0;
+          while (head < queue.length) {
+            const idx = queue[head++];
+            const p = idx * 4;
+            const r = data[p];
+            const g = data[p + 1];
+            const b = data[p + 2];
 
-            const x = idx % size;
-            const y = Math.floor(idx / size);
+            // Limiar seguro de estúdio puro (>= 250)
+            if (r >= 250 && g >= 250 && b >= 250) {
+              data[p + 3] = 0;
 
-            // Vizinhos (4-conectados)
-            if (x > 0 && !visited[idx - 1]) {
-              visited[idx - 1] = 1;
-              queue.push(idx - 1);
-            }
-            if (x < size - 1 && !visited[idx + 1]) {
-              visited[idx + 1] = 1;
-              queue.push(idx + 1);
-            }
-            if (y > 0 && !visited[idx - size]) {
-              visited[idx - size] = 1;
-              queue.push(idx - size);
-            }
-            if (y < size - 1 && !visited[idx + size]) {
-              visited[idx + size] = 1;
-              queue.push(idx + size);
+              const x = idx % size;
+              const y = Math.floor(idx / size);
+
+              if (x > 0 && !visited[idx - 1]) {
+                visited[idx - 1] = 1;
+                queue.push(idx - 1);
+              }
+              if (x < size - 1 && !visited[idx + 1]) {
+                visited[idx + 1] = 1;
+                queue.push(idx + 1);
+              }
+              if (y > 0 && !visited[idx - size]) {
+                visited[idx - size] = 1;
+                queue.push(idx - size);
+              }
+              if (y < size - 1 && !visited[idx + size]) {
+                visited[idx + size] = 1;
+                queue.push(idx + size);
+              }
             }
           }
         }
