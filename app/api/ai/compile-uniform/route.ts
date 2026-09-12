@@ -129,6 +129,8 @@ interface CompileRequest {
   hasUploadedLogo?: boolean;
   currentProject?: InboundProject;
   currentConfig?: InboundProject;
+  currentQuoteNumber?: string;
+  quoteVersion?: number;
 }
 
 export async function POST(req: Request) {
@@ -224,7 +226,7 @@ Regras de Atendimento do Consultor:
    - Para empresas/escritórios: sugira "Camisa Polo em Piquet" ou "Camiseta em Algodão Penteado 30.1".
    - Para eventos/promoções: sugira "Camiseta Tradicional".
 3. CATÁLOGO REAL: Se o cliente pedir algo fora de linha (jaquetas, jeans, moletom, boné), recuse educadamente e ofereça alternativas do nosso catálogo.
-4. NUNCA invente preços ou descontos. Preço é recalculado pelo servidor determinístico com action: "CALCULATE_QUOTE".
+4. NUNCA invente preços ou descontos. Quando o cliente perguntar ou disser "Quanto fica?", "Pode fazer o orçamento?", "Quero fechar." ou solicitar valores/orçamento, selecione action: "CALCULATE_QUOTE". O cálculo é realizado 100% no servidor.
 5. Lembre de todo o contexto anterior do uniforme:
 ${JSON.stringify(currentProject, null, 2)}
 
@@ -454,10 +456,31 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         replyParts.push(`Adicionei o número dorsal **"${changes.customNumber}"** nas costas.`);
       }
 
-      // 10. Pergunta de Orçamento / Preço
-      if (lower.includes("quanto fica") || lower.includes("preco") || lower.includes("preço") || lower.includes("orcamento") || lower.includes("orçamento") || lower.includes("valor")) {
+      // 10. Pergunta de Orçamento / Preço / Fechar Pedido
+      const isQuoteTrigger =
+        lower.includes("quanto fica") ||
+        lower.includes("quanto custa") ||
+        lower.includes("pode fazer o orçamento") ||
+        lower.includes("pode fazer o orcamento") ||
+        lower.includes("fazer o orçamento") ||
+        lower.includes("fazer o orcamento") ||
+        lower.includes("fazer orçamento") ||
+        lower.includes("fazer orcamento") ||
+        lower.includes("quero fechar") ||
+        lower.includes("fechar pedido") ||
+        lower.includes("fechar agora") ||
+        lower.includes("vamos fechar") ||
+        lower.includes("preco") ||
+        lower.includes("preço") ||
+        lower.includes("orcamento") ||
+        lower.includes("orçamento") ||
+        lower.includes("valor");
+
+      if (isQuoteTrigger) {
         action = "CALCULATE_QUOTE";
-        replyParts.push("Calculei os valores exatos com o nosso motor industrial de preços. O resumo e o botão de WhatsApp já estão disponíveis abaixo!");
+        replyParts.push(
+          "Processei a sua configuração com o nosso motor industrial de preços oficial. Seu cartão de orçamento está pronto com valores calculados no servidor!"
+        );
       }
 
       // 11. Condução Consultiva Inteligente (Anti-Interrogatório)
@@ -546,8 +569,10 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
 
     const frontCustomizations: CustomizerElement[] = [];
     const backCustomizations: CustomizerElement[] = [];
+    const sleeveCustomizations: CustomizerElement[] = [];
+    const customizationDescriptions: string[] = [];
 
-    if (mergedProject.logoUrl) {
+    if (mergedProject.logoUrl || body.hasUploadedLogo) {
       if (mergedProject.logoPosition === "COSTAS") {
         backCustomizations.push({
           id: "logo-back",
@@ -562,7 +587,29 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
           scaleX: mergedProject.logoScale,
           scaleY: mergedProject.logoScale,
         });
+        customizationDescriptions.push("Logo costas");
+      } else if (mergedProject.logoPosition === "MANGA") {
+        sleeveCustomizations.push({
+          id: "logo-sleeve",
+          type: "IMAGE",
+          viewSide: "LEFT_SLEEVE",
+          zoneId: "MANGA",
+          x: 0,
+          y: 0,
+          width: 80,
+          height: 80,
+          rotation: 0,
+          scaleX: mergedProject.logoScale,
+          scaleY: mergedProject.logoScale,
+        });
+        customizationDescriptions.push("Logo manga lateral");
       } else {
+        const posLabel =
+          mergedProject.logoPosition === "PEITO_DIREITO"
+            ? "Logo peito direito"
+            : mergedProject.logoPosition === "CENTRO_FRONTAL"
+            ? "Logo centro do peito"
+            : "Logo peito esquerdo";
         frontCustomizations.push({
           id: "logo-front",
           type: "IMAGE",
@@ -576,6 +623,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
           scaleX: mergedProject.logoScale,
           scaleY: mergedProject.logoScale,
         });
+        customizationDescriptions.push(posLabel);
       }
     }
 
@@ -595,8 +643,13 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         scaleY: 1,
         text: mergedProject.customText,
       };
-      if (isBack) backCustomizations.push(item);
-      else frontCustomizations.push(item);
+      if (isBack) {
+        backCustomizations.push(item);
+        customizationDescriptions.push(`Nome nas costas ("${mergedProject.customText}")`);
+      } else {
+        frontCustomizations.push(item);
+        customizationDescriptions.push(`Nome na frente ("${mergedProject.customText}")`);
+      }
     }
 
     if (mergedProject.customNumber) {
@@ -615,8 +668,17 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         scaleY: 1,
         text: mergedProject.customNumber,
       };
-      if (isBack) backCustomizations.push(item);
-      else frontCustomizations.push(item);
+      if (isBack) {
+        backCustomizations.push(item);
+        customizationDescriptions.push(`Número dorsal ${mergedProject.customNumber} nas costas`);
+      } else {
+        frontCustomizations.push(item);
+        customizationDescriptions.push(`Número ${mergedProject.customNumber} na frente`);
+      }
+    }
+
+    if (customizationDescriptions.length === 0) {
+      customizationDescriptions.push("Sem personalizações adicionais");
     }
 
     const basePricing = await PricingService.calculate({
@@ -626,11 +688,17 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       views: {
         FRONT: frontCustomizations,
         BACK: backCustomizations,
+        LEFT_SLEEVE: sleeveCustomizations,
       },
     });
 
     const unitPrice = typeof basePricing?.unitPrice === "number" ? basePricing.unitPrice : (mergedProject.model === "POLO" ? 48.0 : 35.0);
     const totalPrice = typeof basePricing?.total === "number" ? basePricing.total : unitPrice * mergedProject.quantity;
+
+    const quoteNumber =
+      body.currentQuoteNumber ||
+      `#${Math.floor(1000 + Math.random() * 9000)}`;
+    const version = typeof body.quoteVersion === "number" ? body.quoteVersion + 1 : 1;
 
     const sizeBreakdownStr = Object.entries(mergedProject.sizeDistribution || {})
       .filter(([, qty]) => typeof qty === "number" && qty > 0)
@@ -696,6 +764,9 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         observations: mergedProject.observations,
       },
       quoteSummary: {
+        quoteNumber,
+        version,
+        status: "AGUARDANDO APROVAÇÃO",
         modelName: modelBaseName,
         fabricDescription: mergedProject.fabric || VALID_MODELS[mergedProject.model]?.fabric,
         purpose: mergedProject.purpose,
@@ -708,6 +779,7 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         logoScale: updatedLogoScale,
         customText: updatedCustomText,
         customNumber: updatedCustomNumber,
+        customizations: customizationDescriptions,
         sizeBreakdown: sizeBreakdownStr || `${mergedProject.quantity} un.`,
         quantity: mergedProject.quantity,
         unitPrice,

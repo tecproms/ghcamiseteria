@@ -39,7 +39,27 @@ interface ChatMessage {
   showSizeGrid?: boolean;
 }
 
+export interface OfficialQuoteRecord {
+  id: string;
+  quoteNumber: string;
+  version: number;
+  status: "AGUARDANDO APROVAÇÃO" | "APROVADO";
+  modelName: string;
+  colorName: string;
+  quantity: number;
+  customizations: string[];
+  unitPrice: number;
+  totalPrice: number;
+  createdAt: string;
+  whatsAppText?: string;
+  leadTimeDays?: number;
+  discountPercent?: number;
+}
+
 interface QuoteSummaryData {
+  quoteNumber?: string;
+  version?: number;
+  status?: string;
   modelName: string;
   fabricDescription?: string;
   colorName: string;
@@ -52,6 +72,7 @@ interface QuoteSummaryData {
   logoScale?: number;
   customText?: string;
   customNumber?: string;
+  customizations?: string[];
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -128,6 +149,9 @@ export function ChatConfigurator() {
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const [quoteSummary, setQuoteSummary] = useState<QuoteSummaryData | null>(null);
+  const [activeQuote, setActiveQuote] = useState<OfficialQuoteRecord | null>(null);
+  const [quoteHistory, setQuoteHistory] = useState<OfficialQuoteRecord[]>([]);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState("");
 
@@ -429,6 +453,8 @@ export function ChatConfigurator() {
           messages: messages
             .concat({ id: Date.now().toString(), role: "user", text: userText })
             .map((m) => ({ role: m.role, content: m.text })),
+          currentQuoteNumber: activeQuote?.quoteNumber,
+          quoteVersion: activeQuote?.version,
           currentProject: {
             model: modelType,
             color,
@@ -474,21 +500,75 @@ export function ChatConfigurator() {
         if (changes.customNumberPosition) setCustomNumberPosition(changes.customNumberPosition);
         if (changes.viewSide) setViewSide(changes.viewSide);
 
+        const isSummary = data.command?.action === "CALCULATE_QUOTE";
+
         if (data.quoteSummary) {
           setQuoteSummary(data.quoteSummary);
+
+          if (isSummary) {
+            // Preservar orçamento ativo anterior no histórico de versões (sem sobrescrever silenciosamente!)
+            if (activeQuote) {
+              setQuoteHistory((prev) => {
+                if (prev.some((q) => q.quoteNumber === activeQuote.quoteNumber && q.version === activeQuote.version)) {
+                  return prev;
+                }
+                return [activeQuote, ...prev];
+              });
+            }
+
+            const newQuote: OfficialQuoteRecord = {
+              id: `quote-${Date.now()}`,
+              quoteNumber: data.quoteSummary.quoteNumber || activeQuote?.quoteNumber || `#${Math.floor(1000 + Math.random() * 9000)}`,
+              version: data.quoteSummary.version || (activeQuote ? activeQuote.version + 1 : 1),
+              status: "AGUARDANDO APROVAÇÃO",
+              modelName: data.quoteSummary.modelName,
+              colorName: data.quoteSummary.colorName,
+              quantity: data.quoteSummary.quantity,
+              customizations: data.quoteSummary.customizations || [
+                data.quoteSummary.logoPosition
+                  ? `Logo ${data.quoteSummary.logoPosition.toLowerCase().replace(/_/g, " ")}`
+                  : "Logo peito esquerdo",
+              ],
+              unitPrice: data.quoteSummary.unitPrice,
+              totalPrice: data.quoteSummary.totalPrice,
+              createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+              whatsAppText: data.quoteSummary.whatsAppText,
+              leadTimeDays: data.quoteSummary.leadTimeDays,
+              discountPercent: data.quoteSummary.discountPercent,
+            };
+            setActiveQuote(newQuote);
+          }
         }
 
-        const isSummary = data.command?.action === "CALCULATE_QUOTE";
-        const followUpOptions = [
-          {
-            label: "👁️ Ver Revisão e Aprovação Visual",
-            action: () => setIsReviewOpen(true),
-          },
-          {
-            label: "📋 Solicitar Orçamento",
-            action: () => handleRequestSnapshotQuote(),
-          },
-        ];
+        const followUpOptions = isSummary
+          ? [
+              {
+                label: "✅ APROVAR ORÇAMENTO",
+                action: () => handleApproveQuote(),
+              },
+              {
+                label: "✏️ ALTERAR UNIFORME",
+                action: () => handleAlterUniform(),
+              },
+              {
+                label: "👁️ Ver Revisão e Aprovação Visual",
+                action: () => setIsReviewOpen(true),
+              },
+              {
+                label: "📲 Compartilhar no WhatsApp",
+                action: () => handleShareWhatsApp(),
+              },
+            ]
+          : [
+              {
+                label: "👁️ Ver Revisão e Aprovação Visual",
+                action: () => setIsReviewOpen(true),
+              },
+              {
+                label: "📋 Solicitar Orçamento",
+                action: () => handleRequestSnapshotQuote(),
+              },
+            ];
         addMessage("assistant", data.reply, followUpOptions, isSummary);
       } else {
         addMessage(
@@ -600,6 +680,105 @@ export function ChatConfigurator() {
     if (!quoteSummary) return;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(quoteSummary.whatsAppText)}`;
     window.open(url, "_blank");
+  };
+
+  const handleApproveQuote = () => {
+    const current = activeQuote || (quoteSummary ? {
+      id: `quote-${Date.now()}`,
+      quoteNumber: quoteSummary.quoteNumber || "#1001",
+      version: quoteSummary.version || 1,
+      status: "AGUARDANDO APROVAÇÃO" as const,
+      modelName: quoteSummary.modelName,
+      colorName: quoteSummary.colorName,
+      quantity: quoteSummary.quantity,
+      customizations: quoteSummary.customizations || [
+        quoteSummary.logoPosition ? `Logo ${quoteSummary.logoPosition.toLowerCase().replace(/_/g, " ")}` : "Logo peito esquerdo",
+      ],
+      unitPrice: quoteSummary.unitPrice,
+      totalPrice: quoteSummary.totalPrice,
+      createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      whatsAppText: quoteSummary.whatsAppText,
+      leadTimeDays: quoteSummary.leadTimeDays,
+      discountPercent: quoteSummary.discountPercent,
+    } : null);
+
+    if (!current) return;
+
+    const approved: OfficialQuoteRecord = {
+      ...current,
+      status: "APROVADO",
+    };
+    setActiveQuote(approved);
+
+    const whatsAppUrl = approved.whatsAppText
+      ? `https://api.whatsapp.com/send?text=${encodeURIComponent(approved.whatsAppText)}`
+      : undefined;
+
+    addMessage(
+      "assistant",
+      `🎉 **ORÇAMENTO ${approved.quoteNumber} (v${approved.version}) APROVADO COM SUCESSO!**\n\nRegistramos a sua aprovação comercial. Para emissão da ordem de corte com nossos consultores e envio dos arquivos vetoriais, finalize pelo WhatsApp da fábrica:`,
+      [
+        ...(whatsAppUrl
+          ? [
+              {
+                label: "📲 Finalizar no WhatsApp da Fábrica",
+                action: () => window.open(whatsAppUrl, "_blank"),
+              },
+            ]
+          : []),
+        {
+          label: "🔗 Compartilhar no WhatsApp",
+          action: () => handleShareWhatsApp(),
+        },
+      ]
+    );
+  };
+
+  const handleAlterUniform = () => {
+    if (activeQuote) {
+      setQuoteHistory((prev) => {
+        if (prev.some((q) => q.quoteNumber === activeQuote.quoteNumber && q.version === activeQuote.version)) {
+          return prev;
+        }
+        return [activeQuote, ...prev];
+      });
+    }
+
+    addMessage(
+      "assistant",
+      `Perfeito! O que você gostaria de alterar no uniforme?\n\nVocê pode pedir para mudar a cor, trocar o modelo (ex: Polo Piquet, Camiseta ou Manga Longa), alterar a quantidade, ajustar a logo ou textos. O orçamento anterior (**${activeQuote?.quoteNumber || "#Orçamento"} v${activeQuote?.version || 1}**) permanece salvo no histórico e uma nova versão será gerada automaticamente quando solicitado!`,
+      [
+        {
+          label: "🎨 Mudar a Cor",
+          action: () => {
+            setInputText("Quero mudar a cor");
+          },
+        },
+        {
+          label: "🔢 Alterar Quantidade",
+          action: () => {
+            setInputText("Quero alterar a quantidade para ");
+          },
+        },
+        {
+          label: "👔 Trocar para Polo Piquet",
+          action: () => {
+            handleSendMessage("Quero trocar o modelo para Camisa Polo em Piquet");
+          },
+        },
+        {
+          label: "❌ Tirar Logo das Costas",
+          action: () => {
+            handleSendMessage("Quero tirar a logo das costas");
+          },
+        },
+      ]
+    );
+
+    const inputEl = document.querySelector('input[placeholder*="converse"]') as HTMLInputElement | null;
+    if (inputEl) {
+      inputEl.focus();
+    }
   };
 
   const handleRequestSnapshotQuote = async () => {
@@ -1673,80 +1852,204 @@ export function ChatConfigurator() {
                   </div>
                 )}
 
-                {/* Card de Orçamento Compilado */}
-                {msg.isSummary && quoteSummary && (
-                  <div className="mt-4 p-4 rounded-xl bg-white dark:bg-zinc-900 border-2 border-[#d4af37]/50 shadow-lg text-slate-900 dark:text-white space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-2">
-                      <span className="font-bold text-sm text-[#d4af37] flex items-center gap-1.5">
-                        <Coins className="h-4 w-4" /> Resumo do Orçamento
-                      </span>
-                      {quoteSummary.discountPercent > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
-                          {quoteSummary.discountPercent}% OFF
-                        </span>
-                      )}
-                    </div>
+                {/* Cartão Oficial de Orçamento */}
+                {msg.isSummary && (activeQuote || quoteSummary) && (() => {
+                  const currentQ: OfficialQuoteRecord = activeQuote || {
+                    id: "temp-quote",
+                    quoteNumber: quoteSummary?.quoteNumber || "#1001",
+                    version: quoteSummary?.version || 1,
+                    status: (quoteSummary?.status as "AGUARDANDO APROVAÇÃO" | "APROVADO") || "AGUARDANDO APROVAÇÃO",
+                    modelName: quoteSummary?.modelName || "Polo Piquet",
+                    colorName: quoteSummary?.colorName || "Azul Marinho",
+                    quantity: quoteSummary?.quantity || 30,
+                    customizations: quoteSummary?.customizations || [
+                      quoteSummary?.logoPosition ? `Logo ${quoteSummary.logoPosition.toLowerCase().replace(/_/g, " ")}` : "Logo peito esquerdo",
+                    ],
+                    unitPrice: quoteSummary?.unitPrice || 48,
+                    totalPrice: quoteSummary?.totalPrice || 1440,
+                    createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                    whatsAppText: quoteSummary?.whatsAppText,
+                    leadTimeDays: quoteSummary?.leadTimeDays,
+                    discountPercent: quoteSummary?.discountPercent,
+                  };
 
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-slate-500 dark:text-zinc-400">Modelo:</span>
-                        <p className="font-semibold">{quoteSummary.modelName}</p>
+                  const isApproved = currentQ.status === "APROVADO";
+
+                  return (
+                    <div className="mt-4 p-5 rounded-2xl bg-white dark:bg-zinc-900 border-2 border-[#d4af37] shadow-xl text-slate-900 dark:text-white space-y-4">
+                      {/* Título: ORÇAMENTO #XXXX */}
+                      <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#d4af37]">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-base tracking-wide text-slate-900 dark:text-white">
+                              ORÇAMENTO {currentQ.quoteNumber}
+                            </h3>
+                            {currentQ.version > 1 && (
+                              <span className="text-[11px] font-bold text-[#d4af37]">
+                                (Versão {currentQ.version})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {currentQ.discountPercent && currentQ.discountPercent > 0 ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs border border-emerald-300 dark:border-emerald-800">
+                            {currentQ.discountPercent}% OFF
+                          </span>
+                        ) : null}
                       </div>
-                      <div>
-                        <span className="text-slate-500 dark:text-zinc-400">Cor:</span>
-                        <p className="font-semibold">{quoteSummary.colorName}</p>
-                      </div>
-                      {quoteSummary.collarType && (
+
+                      {/* Campos Oficiais Solicitados: Modelo, Cor, Quantidade, Personalizações, Total, Status */}
+                      <div className="space-y-2.5 text-xs">
                         <div>
-                          <span className="text-slate-500 dark:text-zinc-400">Tipo de Gola:</span>
-                          <p className="font-semibold">{quoteSummary.collarType}</p>
+                          <span className="text-slate-500 dark:text-zinc-400 font-medium block">Modelo:</span>
+                          <p className="font-bold text-sm text-slate-900 dark:text-white">{currentQ.modelName}</p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 dark:text-zinc-400 font-medium block">Cor:</span>
+                          <p className="font-bold text-sm text-slate-900 dark:text-white">{currentQ.colorName}</p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 dark:text-zinc-400 font-medium block">Quantidade:</span>
+                          <p className="font-bold text-sm text-slate-900 dark:text-white">{currentQ.quantity} unidades</p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-500 dark:text-zinc-400 font-medium block">Personalizações:</span>
+                          <div className="mt-1 space-y-1">
+                            {currentQ.customizations && currentQ.customizations.length > 0 ? (
+                              currentQ.customizations.map((cust, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-zinc-200">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />
+                                  <span>{cust}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="font-semibold text-slate-600 dark:text-zinc-400">Sem personalizações adicionais</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-baseline justify-between">
+                          <div>
+                            <span className="text-slate-500 dark:text-zinc-400 font-medium block">Total:</span>
+                            <p className="text-xl font-black text-amber-950 dark:text-amber-100 tracking-tight">
+                              R$ {currentQ.totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </p>
+                            <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                              (R$ {currentQ.unitPrice.toFixed(2)} / unidade)
+                            </span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-slate-500 dark:text-zinc-400 font-medium block mb-1">Status:</span>
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wide ${
+                                isApproved
+                                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                  : "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                              }`}
+                            >
+                              {isApproved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5 animate-spin text-amber-600" />}
+                              {currentQ.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* BOTÕES: “APROVAR ORÇAMENTO” e “ALTERAR UNIFORME” */}
+                      <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                        <Button
+                          onClick={handleApproveQuote}
+                          disabled={isApproved}
+                          className={`flex-1 font-bold text-xs h-11 shadow-md gap-2 ${
+                            isApproved
+                              ? "bg-emerald-600/80 text-white cursor-default"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          {isApproved ? "ORÇAMENTO APROVADO" : "APROVAR ORÇAMENTO"}
+                        </Button>
+
+                        <Button
+                          onClick={handleAlterUniform}
+                          variant="outline"
+                          className="flex-1 border-slate-300 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 font-bold text-xs h-11 gap-2"
+                        >
+                          <RefreshCw className="h-4 w-4 text-[#d4af37]" />
+                          ALTERAR UNIFORME
+                        </Button>
+                      </div>
+
+                      {/* Ações Complementares de Navegação */}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          onClick={() => setIsReviewOpen(true)}
+                          variant="ghost"
+                          className="flex-1 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white font-semibold text-xs h-8 gap-1.5"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-[#d4af37]" />
+                          Ver Manequim 360º
+                        </Button>
+                        <Button
+                          onClick={handleShareWhatsApp}
+                          variant="ghost"
+                          className="flex-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-semibold text-xs h-8 gap-1.5"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          Compartilhar no WhatsApp
+                        </Button>
+                      </div>
+
+                      {/* Histórico de Versões Preservadas (Não sobrescreve silenciosamente) */}
+                      {quoteHistory.length > 0 && (
+                        <div className="pt-3 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                          <button
+                            type="button"
+                            onClick={() => setShowHistory(!showHistory)}
+                            className="text-[11px] font-bold text-[#d4af37] hover:underline flex items-center gap-1.5"
+                          >
+                            <span>
+                              {showHistory
+                                ? `Ocultar histórico (${quoteHistory.length} versão(ões) salva(s))`
+                                : `📜 Ver versões anteriores deste projeto (${quoteHistory.length} versão(ões) preservada(s))` }
+                            </span>
+                          </button>
+
+                          {showHistory && (
+                            <div className="mt-2 space-y-2">
+                              {quoteHistory.map((oldQ, hIdx) => (
+                                <div
+                                  key={oldQ.id || hIdx}
+                                  className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-[11px] flex items-center justify-between"
+                                >
+                                  <div>
+                                    <span className="font-bold text-slate-800 dark:text-zinc-100">
+                                      {oldQ.quoteNumber} (v{oldQ.version})
+                                    </span>
+                                    <span className="text-slate-400 mx-1.5">•</span>
+                                    <span className="text-slate-600 dark:text-zinc-400">
+                                      {oldQ.modelName} ({oldQ.colorName}), {oldQ.quantity} un.
+                                    </span>
+                                  </div>
+                                  <div className="text-right font-black text-slate-800 dark:text-zinc-200">
+                                    R$ {oldQ.totalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
-                      <div>
-                        <span className="text-slate-500 dark:text-zinc-400">Quantidade:</span>
-                        <p className="font-semibold">{quoteSummary.quantity} unidades</p>
-                      </div>
-                      {quoteSummary.sizeBreakdown && (
-                        <div className="col-span-2">
-                          <span className="text-slate-500 dark:text-zinc-400">Grade de Tamanhos:</span>
-                          <p className="font-semibold text-slate-700 dark:text-zinc-300">{quoteSummary.sizeBreakdown}</p>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-slate-500 dark:text-zinc-400">Preço Unitário:</span>
-                        <p className="font-semibold">R$ {quoteSummary.unitPrice.toFixed(2)}</p>
-                      </div>
                     </div>
-
-                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] text-amber-900 dark:text-amber-200">Investimento Total Estimado:</span>
-                        <p className="text-lg font-extrabold text-amber-950 dark:text-amber-100">
-                          R$ {quoteSummary.totalPrice.toFixed(2)}
-                        </p>
-                      </div>
-                      <span className="text-[10px] text-slate-400">Prazo: ~{quoteSummary.leadTimeDays} dias úteis</span>
-                    </div>
-
-                    {/* Botões de Ação Direta */}
-                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                      <Button
-                        onClick={() => setIsReviewOpen(true)}
-                        className="flex-1 bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs gap-1.5 shadow-md"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Revisar Uniforme Completo
-                      </Button>
-                      <Button
-                        onClick={handleShareWhatsApp}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md"
-                      >
-                        <Share2 className="h-4 w-4" />
-                        Compartilhar no WhatsApp
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {msg.role === "user" && (
@@ -1909,38 +2212,66 @@ export function ChatConfigurator() {
       </div>
 
       {/* Investimento Oficial e Botão de WhatsApp */}
-      {quoteSummary && (
+      {(activeQuote || quoteSummary) && (
         <div className="mt-2 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-5">
+            {activeQuote && (
+              <div>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">Orçamento:</span>
+                <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  {activeQuote.quoteNumber} {activeQuote.version > 1 ? `(v${activeQuote.version})` : ""}
+                </p>
+                <span
+                  className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                    activeQuote.status === "APROVADO"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {activeQuote.status === "APROVADO" ? <CheckCircle2 className="h-3 w-3" /> : <RefreshCw className="h-3 w-3" />}
+                  {activeQuote.status}
+                </span>
+              </div>
+            )}
+            {activeQuote && <div className="hidden sm:block h-8 w-px bg-slate-200 dark:border-zinc-800" />}
             <div>
               <span className="text-[11px] text-slate-500 dark:text-zinc-400">Preço Unitário Oficial:</span>
               <p className="text-base font-bold text-slate-900 dark:text-white">
-                R$ {quoteSummary.unitPrice.toFixed(2)}
+                R$ {(activeQuote?.unitPrice || quoteSummary?.unitPrice || 0).toFixed(2)}
               </p>
             </div>
             <div className="h-8 w-px bg-slate-200 dark:bg-zinc-800" />
             <div>
               <span className="text-[11px] text-slate-500 dark:text-zinc-400">Investimento Total ({quantity} un):</span>
               <p className="text-xl font-black text-amber-600 dark:text-[#d4af37]">
-                R$ {quoteSummary.totalPrice.toFixed(2)}
+                R$ {(activeQuote?.totalPrice || quoteSummary?.totalPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {activeQuote && activeQuote.status !== "APROVADO" && (
+              <Button
+                onClick={handleApproveQuote}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-4 gap-1.5 shadow-md"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Aprovar Orçamento
+              </Button>
+            )}
             <Button
               onClick={handleShareWhatsApp}
-              className="bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs h-10 px-5 gap-2 shadow-md"
+              className="bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold text-xs h-10 px-4 gap-2 shadow-md"
             >
               <Share2 className="h-4 w-4" />
               Compartilhar no WhatsApp
             </Button>
             <Button
               onClick={handleOpenWhatsApp}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 gap-2 shadow-md"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-4 gap-2 shadow-md"
             >
               <CheckCircle2 className="h-4 w-4" />
-              Finalizar no WhatsApp da Fábrica
+              Finalizar no WhatsApp
             </Button>
           </div>
         </div>
