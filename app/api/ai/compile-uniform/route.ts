@@ -678,6 +678,14 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
         lower.includes("fazer o orcamento") ||
         lower.includes("fazer orçamento") ||
         lower.includes("fazer orcamento") ||
+        lower.includes("gerar imagem") ||
+        lower.includes("gerar imagens") ||
+        lower.includes("gerar fotos") ||
+        lower.includes("ver fotos") ||
+        lower.includes("finalizar") ||
+        lower.includes("concluir") ||
+        lower.includes("ver imagem") ||
+        lower.includes("mostrar imagem") ||
         lower.includes("quero fechar") ||
         lower.includes("fechar pedido") ||
         lower.includes("fechar agora") ||
@@ -691,11 +699,11 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
       if (isQuoteTrigger) {
         action = "CALCULATE_QUOTE";
         replyParts.push(
-          "Processei a sua configuração com o nosso motor industrial de preços oficial. Seu cartão de orçamento está pronto com valores calculados no servidor!"
+          "Processei a sua configuração com o nosso motor industrial de preços oficial. Seu cartão de orçamento está pronto e as fotos fotorrealistas em estúdio de alta definição (Frente, Costas e Manga) estão sendo geradas!"
         );
       }
 
-      // 11. Condução Consultiva Inteligente (Anti-Interrogatório)
+      // 11. Condução Consultiva Inteligente (Passo a Passo Guiado)
       if (action !== "CALCULATE_QUOTE") {
         const isPurposeJustSelected = changes.purpose && !changes.model && !changes.color && !changes.quantity;
 
@@ -705,30 +713,26 @@ SEMPRE termine sua resposta com um bloco JSON delimitado por \`\`\`json { ... } 
           } else if (changes.purpose === "EMPRESA") {
             replyParts.push("Excelente! Para equipes e empresas, nossas opções mais buscadas são a **Camisa Polo em Piquet Nobre** (mais formal e alinhada) ou a **Camiseta Tradicional em Meia Malha Penteada 30.1**. Qual combina mais com o estilo da sua equipe?");
           } else if (changes.purpose === "EVENTO") {
-            replyParts.push("Perfeito! Para eventos e ações comemorativas, a **Camiseta Tradicional** oferece o melhor custo-benefício e caimento. Gostaria de ver em algodão ou prefere polo?");
+            replyParts.push("Perfeito! Para eventos e ações promocionais, a **Camiseta Tradicional** oferece o melhor custo-benefício e caimento. Gostaria de ver em algodão ou prefere polo?");
           } else {
             replyParts.push("Perfeito! Nossos modelos principais são **Camiseta Tradicional**, **Camisa Polo** e **Manga Longa**. Qual deles você gostaria de personalizar?");
           }
         } else {
-          const isEditingVisual = Boolean(
-            changes.model ||
-            changes.color ||
-            changes.collarType ||
-            changes.hasPocket !== undefined ||
-            changes.logoScale ||
-            changes.logoPosition ||
-            changes.customText ||
-            changes.customNumber
-          );
+          const hasModel = Boolean(changes.model || (currentProject.model && currentProject.model !== "TRADITIONAL") || lower.includes("camiseta") || lower.includes("polo") || lower.includes("manga longa"));
+          const hasColor = Boolean(changes.color || (currentProject.color && currentProject.color.hex !== "#FFFFFF"));
+          const hasPocketChoice = changes.hasPocket !== undefined || currentProject.hasPocket;
+          const hasLogo = Boolean(currentProject.logoUrl || body.hasUploadedLogo || changes.logoUrl || changes.logoPosition);
 
-          if (isEditingVisual) {
-            replyParts.push(
-              "O que gostaria de personalizar a seguir? Você pode escolher cores, gola, adicionar bolso, ajustar a logo ou avançar para definir as quantidades."
-            );
-          } else if (replyParts.length === 0) {
-            replyParts.push(
-              "Entendido! O que você gostaria de ajustar agora? Podemos alterar cores, gola, bolso, posição da logo ou avançar para as quantidades."
-            );
+          if (!hasModel) {
+            replyParts.push("Qual modelo você prefere? Temos **Camiseta Tradicional**, **Camisa Polo em Piquet** ou **Camisa Manga Longa**.");
+          } else if (!hasColor) {
+            replyParts.push("Qual cor você gostaria para o tecido principal? Temos Preto Clássico, Azul Marinho, Branco Neve, Vermelho Ferrari, Cinza Mescla, Verde Militar e muitas outras.");
+          } else if (!hasPocketChoice) {
+            replyParts.push("Gostaria de adicionar um **Bolso no Peito** ao uniforme? (Podemos fazê-lo na mesma cor ou com cor contrastante).");
+          } else if (!hasLogo) {
+            replyParts.push("Você tem uma logomarca para aplicar? Pode anexar sua imagem ou me dizer onde gostaria de posicionar (no bolso, peito esquerdo, centro ou costas).");
+          } else {
+            replyParts.push("Ótimo! Se quiser ajustar mais algum detalhe de cor ou estampa me avise, ou clique em **'Gerar Fotos & Orçamento'** para gerar as fotos fotorrealistas em alta definição.");
           }
         }
       }

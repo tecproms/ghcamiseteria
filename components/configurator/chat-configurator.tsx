@@ -160,6 +160,14 @@ export function ChatConfigurator() {
   const [pocketOffsetY, setPocketOffsetY] = useState<number>(0);
   const [logoOffsetX, setLogoOffsetX] = useState<number>(0);
   const [logoOffsetY, setLogoOffsetY] = useState<number>(0);
+  const [isFinalized, setIsFinalized] = useState<boolean>(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
+  const [generatedImages, setGeneratedImages] = useState<{
+    front: string | null;
+    back: string | null;
+    sleeve: string | null;
+  } | null>(null);
+  const [activeGeneratedTab, setActiveGeneratedTab] = useState<"FRONT" | "BACK" | "SLEEVE">("FRONT");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -448,6 +456,58 @@ export function ChatConfigurator() {
     reader.readAsDataURL(file);
   };
 
+  // Gerar Fotos Fotorrealistas em Estúdio com IA (Frente, Costas, Manga)
+  const handleGenerateImages = async () => {
+    setIsGeneratingImages(true);
+    addMessage(
+      "assistant",
+      "✨ Conectando com a IA de estúdio... Gerando fotos fotorrealistas em alta definição da **Frente**, **Costas** e **Manga** do seu uniforme!"
+    );
+
+    try {
+      const res = await fetch("/api/ai/generate-mockup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelType,
+          fabric,
+          color,
+          collarType,
+          collarColor,
+          sleeveColor,
+          hasPocket,
+          pocketColor,
+          logoUrl,
+          logoPosition,
+          customText,
+          customTextPosition,
+          customNumber,
+          customNumberPosition,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.images) {
+        setGeneratedImages(data.images);
+        setIsFinalized(true);
+      } else {
+        addMessage(
+          "assistant",
+          "Houve uma instabilidade temporária ao renderizar as fotos. Você pode tentar novamente clicando abaixo:",
+          [{ label: "🔄 Tentar Novamente", action: () => handleGenerateImages() }]
+        );
+      }
+    } catch (err) {
+      console.error("Erro ao gerar imagens com IA:", err);
+      addMessage(
+        "assistant",
+        "Houve uma falha de conexão com a IA. Tente novamente em alguns segundos:",
+        [{ label: "🔄 Tentar Novamente", action: () => handleGenerateImages() }]
+      );
+    } finally {
+      setIsGeneratingImages(false);
+    }
+  };
+
   // Enviar Mensagem de Texto Livre ou Sugestão Rápida
   const handleSendMessage = async (customPrompt?: string) => {
     const userText = (customPrompt || inputText).trim();
@@ -586,6 +646,10 @@ export function ChatConfigurator() {
           : isSummary
           ? [
               {
+                label: "✨ Ver Fotos de Estúdio (Frente, Costas, Manga)",
+                action: () => handleGenerateImages(),
+              },
+              {
                 label: "✅ APROVAR ORÇAMENTO",
                 action: () => handleApproveQuote(),
               },
@@ -594,15 +658,15 @@ export function ChatConfigurator() {
                 action: () => handleAlterUniform(),
               },
               {
-                label: "👁️ Ver Revisão e Aprovação Visual",
-                action: () => setIsReviewOpen(true),
-              },
-              {
                 label: "📲 Compartilhar no WhatsApp",
                 action: () => handleShareWhatsApp(),
               },
             ]
           : [
+              {
+                label: "✨ Gerar Fotos & Orçamento",
+                action: () => handleGenerateImages(),
+              },
               {
                 label: "🎨 Escolher Cor",
                 action: () => {
@@ -1755,172 +1819,317 @@ export function ChatConfigurator() {
         className="hidden"
       />
 
-      {/* Grid Principal: Lado Esquerdo Mockup (Desktop) / Lado Direito Chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-
-      {/* Lado Esquerdo: Mockup Fotográfico de Estúdio em Tempo Real (5 colunas) */}
-      <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
-              Pré-Visualização Fotográfica
-            </span>
-          </div>
-          <button
-            onClick={handleReset}
-            className="text-xs text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-white flex items-center gap-1 transition-colors"
-            title="Reiniciar configuração"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Reiniciar
-          </button>
-        </div>
-
-        {/* Componente Fotográfico */}
-        <PhotorealisticMockup
-          modelType={modelType}
-          color={color}
-          logoUrl={logoUrl}
-          logoPosition={logoPosition}
-          customText={customText}
-          customTextPosition={customTextPosition}
-          customNumber={customNumber}
-          customNumberPosition={customNumberPosition}
-          viewSide={viewSide}
-          onViewSideChange={setViewSide}
-          logoScale={logoScale}
-          onLogoScaleChange={setLogoScale}
-          hasPocket={hasPocket}
-          pocketColor={pocketColor}
-          pocketOffsetX={pocketOffsetX}
-          pocketOffsetY={pocketOffsetY}
-          onPocketOffsetChange={(x, y) => { setPocketOffsetX(x); setPocketOffsetY(y); }}
-          onPocketColorChange={setPocketColor}
-          logoOffsetX={logoOffsetX}
-          logoOffsetY={logoOffsetY}
-          onLogoOffsetChange={(x, y) => { setLogoOffsetX(x); setLogoOffsetY(y); }}
-        />
-
-        {/* Resumo Rápido dos Detalhes Técnicos */}
-        <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm text-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 dark:text-zinc-400">Padrão Fabril:</span>
-            <span className="font-semibold text-slate-800 dark:text-zinc-200">
-              {modelType === "POLO"
-                ? "Piquet Duplo 220g/m²"
-                : modelType === "MANGA_LONGA"
-                ? "Algodão Penteado 30.1"
-                : "Meia Malha 100% Algodão"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 dark:text-zinc-400">Tipo de Gola:</span>
-            <span className="font-semibold text-slate-800 dark:text-zinc-200">
-              {collarType}
-            </span>
-          </div>
-          {hasPocket && (
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500 dark:text-zinc-400">Acabamento:</span>
-              <span className="font-semibold text-slate-800 dark:text-zinc-200">
-                Bolso no Peito
-              </span>
-            </div>
-          )}
-          {collarColor && (
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500 dark:text-zinc-400">Gola Contrastante:</span>
-              <span className="font-semibold text-slate-800 dark:text-zinc-200">
-                {collarColor.name}
-              </span>
-            </div>
-          )}
-          {sleeveColor && (
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500 dark:text-zinc-400">Mangas Contrastantes:</span>
-              <span className="font-semibold text-slate-800 dark:text-zinc-200">
-                {sleeveColor.name}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 dark:text-zinc-400">Visão em Exibição:</span>
-            <span className="font-semibold text-slate-800 dark:text-zinc-200">
-              {viewSide === "FRONT"
-                ? "👕 Frente"
-                : viewSide === "BACK"
-                ? "🔄 Costas"
-                : "📐 Manga Lateral"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 dark:text-zinc-400">Aplicação da Logo:</span>
-            <span className="font-semibold text-slate-800 dark:text-zinc-200">
-              {logoPosition === "PEITO_ESQUERDO"
-                ? "Peito Esquerdo (Bordado/DTF)"
-                : logoPosition === "CENTRO_FRONTAL"
-                ? (viewSide === "BACK" ? "Costas (Centro Amplo)" : "Centro Frontal (Silk/DTF)")
-                : logoPosition === "BOLSO"
-                ? "Bolso no Peito (Bordado/DTF)"
-                : logoPosition === "COSTAS"
-                ? "Costas (Centro Amplo)"
-                : logoPosition === "MANGA"
-                ? "Manga Lateral (Bordado/DTF)"
-                : "Peito Direito (Bordado/DTF)"}
-              {logoUrl ? ` • Escala ${Math.round(logoScale * 100)}%` : ""}
-            </span>
-          </div>
-          {logoUrl ? (
-            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium">
-              <span>Logo Anexada:</span>
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Pronta no Mockup
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between text-slate-400">
-              <span>Logo:</span>
-              <span>Nenhum arquivo enviado</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Lado Direito: Assistente Conversacional GH (7 colunas) */}
-      <div className="lg:col-span-7 flex flex-col h-[590px] rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xl overflow-hidden">
-        {/* Topo do Chat */}
-        <div className="p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/70 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#d4af37] to-amber-500 flex items-center justify-center text-white shadow-md">
-              <Bot className="h-5 w-5" />
-            </div>
+      {/* Visualização: Apresentação Final (se finalizado) OU Chat 100% Guiado (sem manequim distraindo) */}
+      {isFinalized && generatedImages ? (
+        <div className="space-y-6 max-w-6xl mx-auto">
+          {/* Top Header com Ações */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-md gap-4">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                Consultor Virtual GH
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  <Sparkles className="h-2.5 w-2.5" /> Groq AI
+              <div className="flex items-center gap-2">
+                <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                  Apresentação Final do Uniforme
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40">
+                  Estúdio IA 8K
                 </span>
-              </h2>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Atendimento inteligente para orçamentos e uniformes
+              </div>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                Visualização fotorrealista em estúdio fotográfico das 3 visões da sua peça
               </p>
             </div>
+
+            <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                onClick={() => setIsFinalized(false)}
+                className="text-xs font-semibold gap-1.5 border-slate-300 dark:border-zinc-700"
+              >
+                <MessageSquare className="h-3.5 w-3.5 text-[#d4af37]" />
+                Voltar ao Chat
+              </Button>
+              <Button
+                onClick={() => handleGenerateImages()}
+                variant="outline"
+                disabled={isGeneratingImages}
+                className="text-xs font-semibold gap-1.5 border-slate-300 dark:border-zinc-700"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isGeneratingImages ? "animate-spin" : ""}`} />
+                Regerar Fotos
+              </Button>
+              <Button
+                onClick={handleShareWhatsApp}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 shadow-md"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Enviar no WhatsApp
+              </Button>
+            </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-xs h-8 gap-1.5 border-slate-300 dark:border-zinc-700"
-          >
-            <Upload className="h-3.5 w-3.5 text-[#d4af37]" />
-            <span className="hidden sm:inline">Anexar Logo</span>
-          </Button>
-        </div>
+          {/* Grid: Lado Esquerdo Fotos de Estúdio IA / Lado Direito Ficha Técnica & Orçamento */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Lado Esquerdo (7 colunas): Galeria de Fotos IA com Abas */}
+            <div className="lg:col-span-7 space-y-4">
+              {/* Seletor de Visão */}
+              <div className="flex items-center justify-between bg-white dark:bg-zinc-900 p-2 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setActiveGeneratedTab("FRONT")}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                      activeGeneratedTab === "FRONT"
+                        ? "bg-[#d4af37] text-slate-950 shadow-md"
+                        : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    👕 Frente
+                  </button>
+                  <button
+                    onClick={() => setActiveGeneratedTab("BACK")}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                      activeGeneratedTab === "BACK"
+                        ? "bg-[#d4af37] text-slate-950 shadow-md"
+                        : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    🔄 Costas
+                  </button>
+                  <button
+                    onClick={() => setActiveGeneratedTab("SLEEVE")}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                      activeGeneratedTab === "SLEEVE"
+                        ? "bg-[#d4af37] text-slate-950 shadow-md"
+                        : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    📐 Manga Lateral
+                  </button>
+                </div>
 
-        {/* Área de Mensagens com Rolagem */}
-        <div ref={chatScrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                <a
+                  href={
+                    activeGeneratedTab === "FRONT"
+                      ? generatedImages.front || "#"
+                      : activeGeneratedTab === "BACK"
+                      ? generatedImages.back || "#"
+                      : generatedImages.sleeve || "#"
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#d4af37] hover:bg-[#d4af37]/10 flex items-center gap-1.5 transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Abrir Alta Resolução
+                </a>
+              </div>
+
+              {/* Moldura da Imagem Ativa */}
+              <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-zinc-800 shadow-2xl flex items-center justify-center">
+                {isGeneratingImages ? (
+                  <div className="flex flex-col items-center gap-3 text-slate-300">
+                    <Loader2 className="h-10 w-10 animate-spin text-[#d4af37]" />
+                    <p className="text-sm font-semibold">Renderizando em estúdio com IA...</p>
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      activeGeneratedTab === "FRONT"
+                        ? generatedImages.front || ""
+                        : activeGeneratedTab === "BACK"
+                        ? generatedImages.back || ""
+                        : generatedImages.sleeve || ""
+                    }
+                    alt="Mockup Gerado por IA"
+                    className="w-full h-full object-contain"
+                  />
+                )}
+              </div>
+
+              {/* Thumbnails Rápidas */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: "FRONT", label: "Frente", url: generatedImages.front },
+                  { id: "BACK", label: "Costas", url: generatedImages.back },
+                  { id: "SLEEVE", label: "Manga", url: generatedImages.sleeve },
+                ].map((th) => (
+                  <button
+                    key={th.id}
+                    onClick={() => setActiveGeneratedTab(th.id as "FRONT" | "BACK" | "SLEEVE")}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-square bg-slate-950 ${
+                      activeGeneratedTab === th.id
+                        ? "border-[#d4af37] shadow-lg scale-[1.02]"
+                        : "border-slate-200 dark:border-zinc-800 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {th.url && <img src={th.url} alt={th.label} className="w-full h-full object-cover" />}
+                    <span className="absolute bottom-1.5 left-1.5 right-1.5 text-center bg-black/75 backdrop-blur-xs text-[10px] font-bold text-white py-0.5 rounded">
+                      {th.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Lado Direito (5 colunas): Ficha Técnica e Orçamento */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Ficha Técnica */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-lg text-xs space-y-3">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2 flex items-center gap-2">
+                  <Shirt className="h-4 w-4 text-[#d4af37]" />
+                  Ficha Técnica da Confecção
+                </h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-zinc-400">Modelo:</span>
+                  <span className="font-bold text-slate-800 dark:text-zinc-200">
+                    {modelType === "POLO" ? "Camisa Polo Piquet" : modelType === "MANGA_LONGA" ? "Camisa Manga Longa" : "Camiseta Tradicional"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-zinc-400">Tecido:</span>
+                  <span className="font-bold text-slate-800 dark:text-zinc-200">
+                    {fabric || (modelType === "POLO" ? "Piquet Nobre Duplo 220g" : "Meia Malha 100% Algodão 30.1")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-zinc-400">Cor Principal:</span>
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-zinc-200">
+                    <span className="w-3.5 h-3.5 rounded-full border border-slate-300" style={{ backgroundColor: color.hex }} />
+                    {color.name}
+                  </div>
+                </div>
+                {hasPocket && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-zinc-400">Bolso no Peito:</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      Sim {pocketColor ? `(Cor personalizada)` : "(Mesmo tom)"}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-zinc-400">Aplicação da Logo:</span>
+                  <span className="font-bold text-slate-800 dark:text-zinc-200">
+                    {logoPosition === "BOLSO" ? "No Bolso do Peito" : logoPosition === "COSTAS" ? "Costas (Amplo)" : logoPosition === "CENTRO_FRONTAL" ? "Centro Frontal" : "Peito Esquerdo"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-zinc-400">Lote Total:</span>
+                  <span className="font-bold text-[#d4af37]">{quantity} peças</span>
+                </div>
+              </div>
+
+              {/* Caixa Oficial de Orçamento */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border-2 border-[#d4af37] shadow-xl text-slate-900 dark:text-white space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+                  <div>
+                    <h4 className="font-extrabold text-base text-slate-900 dark:text-white">
+                      ORÇAMENTO ESTIMADO
+                    </h4>
+                    <span className="text-[11px] font-bold text-[#d4af37]">
+                      Fábrica Própria • Preço Direto
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+                    Pronto para Produzir
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+                  <div>
+                    <span className="text-slate-500 dark:text-zinc-400 text-xs">Preço por Peça:</span>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">
+                      R$ {(quoteSummary?.unitPrice || 48).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-500 dark:text-zinc-400 text-xs">Total do Lote:</span>
+                    <p className="text-2xl font-black text-[#d4af37]">
+                      R$ {(quoteSummary?.totalPrice || (quantity * 48)).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleShareWhatsApp}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm h-12 gap-2 shadow-lg"
+                  >
+                    <CheckCircle2 className="h-5 w-5" />
+                    APROVAR E CONVERSAR NO WHATSAPP
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsFinalized(false)}
+                    className="w-full border-slate-300 dark:border-zinc-700 font-bold text-xs h-10 gap-2"
+                  >
+                    <MessageSquare className="h-4 w-4 text-[#d4af37]" />
+                    Pedir Ajustes à IA no Chat
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="max-w-4xl mx-auto flex flex-col h-[650px] rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
+          {/* Topo do Chat */}
+          <div className="p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-950/80 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#d4af37] to-amber-500 flex items-center justify-center text-white shadow-md">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  Consultor Virtual GH
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    <Sparkles className="h-2.5 w-2.5" /> IA Especialista
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Responda às perguntas abaixo para configurarmos o uniforme perfeito da sua equipe
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleReset}
+                title="Reiniciar configuração"
+                className="text-xs h-8 px-2.5 text-slate-500 hover:text-slate-700 dark:text-zinc-400 gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Reiniciar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs h-8 gap-1.5 border-slate-300 dark:border-zinc-700"
+              >
+                <Upload className="h-3.5 w-3.5 text-[#d4af37]" />
+                <span className="hidden sm:inline">Anexar Logo</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleGenerateImages}
+                disabled={isGeneratingImages}
+                className="text-xs h-8 gap-1.5 bg-[#d4af37] hover:bg-[#b8952b] text-slate-950 font-bold shadow-xs"
+              >
+                {isGeneratingImages ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                <span>Gerar Fotos Finais</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Área de Mensagens com Rolagem */}
+          <div ref={chatScrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -2276,7 +2485,7 @@ export function ChatConfigurator() {
           </Button>
         </div>
       </div>
-    </div>
+    )}
 
     {/* PARTE INFERIOR: Resumo Completo da Configuração Atual (Desktop: abaixo de ambas as colunas; Celular: após o chat) */}
     <div className="mt-8 p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-lg space-y-4">
