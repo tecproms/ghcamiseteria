@@ -13,6 +13,7 @@ import {
   Factory,
   ArrowLeft,
   Coins,
+  Settings,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
@@ -25,6 +26,7 @@ export const adminNavItems = [
   { href: "/admin/precos", label: "Tabela de Preços", icon: Coins },
   { href: "/admin/produtos", label: "Catálogo Base", icon: Layers },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
+  { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 export function AdminSidebar() {

@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { PricingService } from "@/services/pricing/pricing.service";
 import { OrdersService } from "@/services/orders.service";
+import { SettingsService } from "@/services/settings.service";
 import { createClient } from "@/lib/supabase/server";
 import type { CustomizerElement } from "@/types/configurator";
 
@@ -276,7 +277,8 @@ Não confeccionamos ${foundUnavailable}s. Posso te apresentar nossas **Camisas P
     // 2. Interpretar dados com Groq ou Heurística
     let aiReply = "";
     let structuredCommand: StructuredCommand | null = null;
-    const groqApiKey = process.env.GROQ_API_KEY;
+    const groqApiKey = (await SettingsService.get("GROQ_API_KEY")) || process.env.GROQ_API_KEY;
+    const groqModel = (await SettingsService.get("GROQ_MODEL")) || process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
     if (groqApiKey) {
       try {
@@ -287,7 +289,7 @@ Não confeccionamos ${foundUnavailable}s. Posso te apresentar nossas **Camisas P
             Authorization: `Bearer ${groqApiKey}`,
           },
           body: JSON.stringify({
-            model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+            model: groqModel,
             temperature: 0.2,
             messages: [
               {

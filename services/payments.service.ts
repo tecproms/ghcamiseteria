@@ -4,6 +4,7 @@
 
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 import { OrdersService } from "@/services/orders.service";
+import { SettingsService } from "@/services/settings.service";
 import type {
   CreatePixPaymentDTO,
   CreateCardPreferenceDTO,
@@ -41,6 +42,46 @@ const FALLBACK_QR_BASE64 =
 
 export class PaymentsService {
   /**
+   * Instancia o cliente do Mercado Pago dinamicamente com base nas configurações salvas no banco
+   */
+  private static async getMpClient(): Promise<{
+    payment: Payment | null;
+    preference: Preference | null;
+    appUrl: string;
+    isConfigured: boolean;
+  }> {
+    const dynamicToken =
+      (await SettingsService.get("MERCADO_PAGO_ACCESS_TOKEN")) ||
+      MERCADO_PAGO_TOKEN;
+    const dynamicAppUrl =
+      (await SettingsService.get("NEXT_PUBLIC_APP_URL")) ||
+      APP_URL;
+
+    if (!dynamicToken) {
+      return { payment: null, preference: null, appUrl: dynamicAppUrl, isConfigured: false };
+    }
+
+    if (dynamicToken === MERCADO_PAGO_TOKEN && mpPayment && mpPreference) {
+      return { payment: mpPayment, preference: mpPreference, appUrl: dynamicAppUrl, isConfigured: true };
+    }
+
+    try {
+      const client = new MercadoPagoConfig({
+        accessToken: dynamicToken,
+        options: { timeout: 8000 },
+      });
+      return {
+        payment: new Payment(client),
+        preference: new Preference(client),
+        appUrl: dynamicAppUrl,
+        isConfigured: true,
+      };
+    } catch {
+      return { payment: null, preference: null, appUrl: dynamicAppUrl, isConfigured: false };
+    }
+  }
+
+  /**
    * Verificar se o Mercado Pago está operando com credencial real de produção/homologação
    */
   static isConfigured(): boolean {
@@ -67,8 +108,10 @@ export class PaymentsService {
     const payerEmail = dto.payer_email || order.customer_info?.email || "contato@ghcamiseteria.com.br";
     const cleanCpf = (dto.payer_cpf || "").replace(/\D/g, "");
 
+    const { payment: activePayment, appUrl: activeAppUrl, isConfigured } = await this.getMpClient();
+
     // Se temos credencial oficial do Mercado Pago:
-    if (this.isConfigured() && mpPayment) {
+    if (isConfigured && activePayment) {
       try {
         const body: Record<string, unknown> = {
           transaction_amount: Number(order.total_amount),
@@ -82,11 +125,11 @@ export class PaymentsService {
               ? { identification: { type: "CPF", number: cleanCpf } }
               : {}),
           },
-          notification_url: `${APP_URL}/api/webhooks/mercadopago`,
+          notification_url: `${activeAppUrl}/api/webhooks/mercadopago`,
           external_reference: order.id,
         };
 
-        const res = await mpPayment.create({ body });
+        const res = await activePayment.create({ body });
         const txData = res.point_of_interaction?.transaction_data;
         const qrCode = txData?.qr_code || "";
         const qrCodeBase64 = txData?.qr_code_base64 || "";
@@ -156,7 +199,9 @@ export class PaymentsService {
     const payerName = dto.payer_name || order.customer_info?.name || "Cliente GH";
     const payerEmail = dto.payer_email || order.customer_info?.email || "contato@ghcamiseteria.com.br";
 
-    if (this.isConfigured() && mpPreference) {
+    const { preference: activePreference, appUrl: activeAppUrl, isConfigured } = await this.getMpClient();
+
+    if (isConfigured && activePreference) {
       try {
         const body = {
           items: [
@@ -174,12 +219,12 @@ export class PaymentsService {
             email: payerEmail,
           },
           back_urls: {
-            success: `${APP_URL}/pagamento/sucesso?order_id=${order.id}`,
-            failure: `${APP_URL}/pagamento/${order.id}?status=falha`,
-            pending: `${APP_URL}/pagamento/${order.id}?status=pendente`,
+            success: `${activeAppUrl}/pagamento/sucesso?order_id=${order.id}`,
+            failure: `${activeAppUrl}/pagamento/${order.id}?status=falha`,
+            pending: `${activeAppUrl}/pagamento/${order.id}?status=pendente`,
           },
           auto_return: "approved",
-          notification_url: `${APP_URL}/api/webhooks/mercadopago`,
+          notification_url: `${activeAppUrl}/api/webhooks/mercadopago`,
           external_reference: order.id,
           payment_methods: {
             excluded_payment_types: [{ id: "ticket" }],
@@ -187,7 +232,7 @@ export class PaymentsService {
           },
         };
 
-        const res = await mpPreference.create({ body });
+        const res = await activePreference.create({ body });
         const prefId = String(res.id);
         const initPoint = res.init_point || "";
         const sandboxInitPoint = res.sandbox_init_point || initPoint;
@@ -214,7 +259,7 @@ export class PaymentsService {
 
     // Fallback Sandbox
     const mockPrefId = `pref-mock-${Date.now()}`;
-    const mockUrl = `${APP_URL}/pagamento/sucesso?order_id=${order.id}&sandbox=1`;
+    const mockUrl = `${activeAppUrl}/pagamento/sucesso?order_id=${order.id}&sandbox=1`;
 
     await OrdersService.attachPaymentDetails(order.id, {
       payment_id: mockPrefId,
@@ -258,9 +303,10 @@ export class PaymentsService {
     }
 
     // Validação Oficial consultando a API do Mercado Pago diretamente no servidor
-    if (this.isConfigured() && mpPayment) {
+    const { payment: activePayment, isConfigured } = await this.getMpClient();
+    if (isConfigured && activePayment) {
       try {
-        const mpRes = await mpPayment.get({ id: Number(paymentId) });
+        const mpRes = await activePayment.get({ id: Number(paymentId) });
         const orderId = String(mpRes.external_reference || "");
         const rawStatus = String(mpRes.status || "").toLowerCase();
         const paidAmount = Number(mpRes.transaction_amount || 0);
