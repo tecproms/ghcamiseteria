@@ -465,4 +465,16 @@ export class ProductionService {
       })),
     };
   }
+
+  /**
+   * Helper exclusivo para testes automatizados
+   */
+  static _seedProductionOrderForTesting(po: ProductionOrder): void {
+    memoryProductionOrders = memoryProductionOrders.filter((p) => p.id !== po.id && p.order_id !== po.order_id);
+    memoryProductionOrders.unshift(po);
+  }
+
+  static _clearProductionOrdersForTesting(): void {
+    memoryProductionOrders = [];
+  }
 }

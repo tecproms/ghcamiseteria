@@ -341,6 +341,214 @@ export class OrdersService {
   }
 
   /**
+   * Buscar pedido por número de pedido (ex: "PED-2026-0001") com validação estrita de autorização
+   */
+  static async getOrderByNumber(orderNumber: string, userId: string, isAdmin = false): Promise<Order | null> {
+    const cleanNumber = orderNumber.trim().toUpperCase();
+    let order: Order | null = null;
+
+    try {
+      const res = await pool.query(
+        `SELECT o.*,
+                json_agg(oi.*) AS items
+         FROM public.orders o
+         LEFT JOIN public.order_items oi ON oi.order_id = o.id
+         WHERE UPPER(o.order_number) = $1 AND o.deleted_at IS NULL
+         GROUP BY o.id`,
+        [cleanNumber]
+      );
+
+      if (res.rows[0]) {
+        const r = res.rows[0];
+        order = {
+          id: r.id,
+          order_number: r.order_number,
+          quote_id: r.quote_id,
+          quote_number: r.quote_number,
+          user_id: r.user_id,
+          customer_id: r.customer_id,
+          status: (r.status || "PENDING_PAYMENT").toUpperCase() as OrderStatus,
+          payment_status: (r.payment_status || "PENDING").toUpperCase(),
+          total_amount: parseFloat(r.total_amount || 0),
+          discount_amount: parseFloat(r.discount_amount || 0),
+          shipping_amount: parseFloat(r.shipping_amount || 0),
+          tracking_code: r.tracking_code,
+          estimated_delivery_date: r.estimated_delivery_date,
+          delivery_date: r.delivery_date,
+          notes: r.notes,
+          admin_notes: r.admin_notes,
+          payment_id: r.payment_id || null,
+          payment_method: r.payment_method || null,
+          payment_details: typeof r.payment_details === "string" ? JSON.parse(r.payment_details) : r.payment_details || null,
+          paid_at: r.paid_at || null,
+          customer_info: typeof r.customer_info === "string" ? JSON.parse(r.customer_info) : r.customer_info,
+          history: typeof r.history === "string" ? JSON.parse(r.history) : r.history || [],
+          items: (r.items || []).filter(Boolean).map((it: Record<string, unknown>) => ({
+            ...it,
+            size_breakdown: typeof it.size_breakdown === "string" ? JSON.parse(it.size_breakdown as string) : it.size_breakdown,
+            color: typeof it.color === "string" ? JSON.parse(it.color as string) : it.color,
+            snapshot_data: typeof it.snapshot_data === "string" ? JSON.parse(it.snapshot_data as string) : it.snapshot_data,
+          })),
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+        } as Order;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (!order) {
+      order = memoryOrders.find(
+        (o) => o.order_number.toUpperCase() === cleanNumber && !o.deleted_at
+      ) || null;
+    }
+
+    if (!order) return null;
+
+    // Regra de segurança estrita: Cliente não acessa pedido de outro cliente
+    if (order.user_id !== userId && !isAdmin) {
+      throw new UnauthorizedOrderAccessError(
+        "Acesso negado: este pedido pertence a outro usuário."
+      );
+    }
+
+    return order;
+  }
+
+  /**
+   * Consulta de status real do pedido para a IA conversacional.
+   * OPERAÇÃO 100% SOMENTE-LEITURA. NUNCA ALTERA STATUS.
+   * REGRA DE SEGURANÇA: Cliente A NUNCA consulta pedido do Cliente B.
+   */
+  static async queryOrderStatusForClient(
+    userId?: string | null,
+    targetOrderIdentifier?: string | null
+  ): Promise<{
+    success: boolean;
+    reply: string;
+    orderNumber?: string;
+    status?: OrderStatus;
+    productionStep?: string;
+    unauthorized?: boolean;
+  }> {
+    if (!userId) {
+      return {
+        success: false,
+        reply:
+          "Para consultar o andamento do seu pedido com segurança, por favor faça login na sua conta da GH Camiseteria.",
+      };
+    }
+
+    let targetOrder: Order | null = null;
+
+    // 1. Se foi passado um identificador específico (ex: ID ou número do pedido)
+    if (targetOrderIdentifier && targetOrderIdentifier.trim()) {
+      const cleanIdent = targetOrderIdentifier.trim();
+      try {
+        targetOrder = await this.getOrderByNumber(cleanIdent, userId, false);
+        if (!targetOrder) {
+          targetOrder = await this.getOrderById(cleanIdent, userId, false);
+        }
+      } catch (err) {
+        if (err instanceof UnauthorizedOrderAccessError) {
+          return {
+            success: false,
+            unauthorized: true,
+            reply: "Acesso negado: este pedido pertence a outro usuário. Por segurança, você só pode consultar pedidos da sua conta.",
+          };
+        }
+        throw err;
+      }
+
+      if (!targetOrder) {
+        return {
+          success: false,
+          reply: `Não localizei nenhum pedido com o código "${cleanIdent}" vinculado à sua conta.`,
+        };
+      }
+    } else {
+      // 2. Sem identificador: busca os pedidos do usuário autenticado
+      const userOrders = await this.getOrdersByUser(userId);
+      if (!userOrders || userOrders.length === 0) {
+        return {
+          success: true,
+          reply:
+            "Não encontrei pedidos em andamento vinculados à sua conta no momento. Assim que seu orçamento for fechado, você poderá acompanhar todo o processo por aqui!",
+        };
+      }
+
+      const activeOrder =
+        userOrders.find((o) =>
+          ["PAID", "IN_PRODUCTION", "READY", "PENDING_PAYMENT", "SHIPPED"].includes(o.status)
+        ) || userOrders[0];
+
+      targetOrder = activeOrder;
+    }
+
+    // 3. Mapear o STATUS REAL e a ETAPA REAL (sem inventar informações)
+    const orderNumber = targetOrder.order_number;
+    const status = targetOrder.status;
+    let productionStep: string | undefined;
+    let reply = "";
+
+    switch (status) {
+      case "PAID":
+        reply = "Seu pagamento foi confirmado e seu pedido está aguardando entrada na produção.";
+        break;
+
+      case "IN_PRODUCTION": {
+        try {
+          const { ProductionService } = await import("@/services/production.service");
+          const prodOrder = await ProductionService.getProductionOrderByOrderId(targetOrder.id);
+          if (prodOrder && prodOrder.current_step) {
+            productionStep = prodOrder.current_step;
+            reply = `Seu pedido está em ${prodOrder.current_step}.`;
+          } else {
+            reply = "Seu pedido está em produção.";
+          }
+        } catch {
+          reply = "Seu pedido está em produção.";
+        }
+        break;
+      }
+
+      case "READY":
+        reply = "Seu pedido está pronto.";
+        break;
+
+      case "SHIPPED":
+        reply = targetOrder.tracking_code
+          ? `Seu pedido foi despachado para envio. Código de rastreio: ${targetOrder.tracking_code}.`
+          : "Seu pedido foi despachado para envio.";
+        break;
+
+      case "DELIVERED":
+        reply = "Seu pedido já foi entregue.";
+        break;
+
+      case "PENDING_PAYMENT":
+        reply = "Seu pedido está aguardando a confirmação do pagamento para entrar na fila de produção.";
+        break;
+
+      case "CANCELLED":
+        reply = "Seu pedido consta como cancelado no nosso sistema.";
+        break;
+
+      default:
+        reply = `A situação atual do seu pedido é: ${status}.`;
+        break;
+    }
+
+    return {
+      success: true,
+      reply,
+      orderNumber,
+      status,
+      productionStep,
+    };
+  }
+
+  /**
    * Atualização de status do pedido pelo administrador
    */
   static async updateOrderStatus(
@@ -698,5 +906,17 @@ export class OrdersService {
         order_number: originalOrder.order_number,
       },
     };
+  }
+
+  /**
+   * Helper exclusivo para testes automatizados
+   */
+  static _seedOrderForTesting(order: Order): void {
+    memoryOrders = memoryOrders.filter((o) => o.id !== order.id && o.order_number !== order.order_number);
+    memoryOrders.unshift(order);
+  }
+
+  static _clearOrdersForTesting(): void {
+    memoryOrders = [];
   }
 }

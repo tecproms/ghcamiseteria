@@ -4,6 +4,8 @@
 
 import { NextResponse } from "next/server";
 import { PricingService } from "@/services/pricing/pricing.service";
+import { OrdersService } from "@/services/orders.service";
+import { createClient } from "@/lib/supabase/server";
 import type { CustomizerElement } from "@/types/configurator";
 
 // Catálogo Oficial de Modelos Válidos da Fábrica
@@ -63,6 +65,7 @@ type CommandAction =
   | "UPDATE_TEXT"
   | "ADD_NUMBER"
   | "CALCULATE_QUOTE"
+  | "QUERY_ORDER_STATUS"
   | "INVALID_REQUEST";
 
 interface StructuredCommand {
@@ -131,6 +134,8 @@ interface CompileRequest {
   currentConfig?: InboundProject;
   currentQuoteNumber?: string;
   quoteVersion?: number;
+  userId?: string;
+  orderId?: string;
 }
 
 export async function POST(req: Request) {
@@ -167,6 +172,83 @@ export async function POST(req: Request) {
       body.message ||
       "";
     const lower = userLastMessage.toLowerCase().trim();
+
+    // 0. Consulta de Status Real do Pedido & Etapas de Produção via IA (100% Somente-Leitura)
+    const isOrderStatusQuery =
+      lower.includes("como está meu pedido") ||
+      lower.includes("como esta meu pedido") ||
+      lower.includes("meu pedido já foi produzido") ||
+      lower.includes("meu pedido ja foi produzido") ||
+      lower.includes("já foi produzido") ||
+      lower.includes("ja foi produzido") ||
+      lower.includes("está pronto") ||
+      lower.includes("esta pronto") ||
+      lower.includes("já está pronto") ||
+      lower.includes("ja esta pronto") ||
+      lower.includes("qual a situação") ||
+      lower.includes("qual a situacao") ||
+      lower.includes("qual a situação do meu pedido") ||
+      lower.includes("qual o status") ||
+      lower.includes("qual é o status") ||
+      lower.includes("qual e o status") ||
+      lower.includes("status do meu pedido") ||
+      lower.includes("status do pedido") ||
+      lower.includes("onde está meu pedido") ||
+      lower.includes("onde esta meu pedido") ||
+      lower.includes("rastrear pedido") ||
+      lower.includes("andamento do pedido") ||
+      lower.includes("andamento da produção") ||
+      lower.includes("andamento da producao") ||
+      lower.includes("como está a produção") ||
+      lower.includes("como esta a producao") ||
+      lower.includes("produção do pedido") ||
+      lower.includes("producao do pedido") ||
+      (lower.includes("pedido") &&
+        (lower.includes("pronto") ||
+          lower.includes("produzido") ||
+          lower.includes("situacao") ||
+          lower.includes("situação") ||
+          lower.includes("andamento") ||
+          lower.includes("status")));
+
+    if (isOrderStatusQuery) {
+      let userId: string | null = body.userId || null;
+      try {
+        const supabase = await createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.id) userId = user.id;
+      } catch {
+        // Fallback
+      }
+
+      if (!userId && process.env.NODE_ENV !== "production") {
+        userId = req.headers.get("x-user-id") || userId;
+      }
+
+      const orderMatch = lower.match(/(ped-\d{4}-\d+|#\d{4,}|\border-[a-z0-9-]+\b)/i);
+      const targetOrderIdentifier = body.orderId || (orderMatch ? orderMatch[0].replace("#", "") : null);
+
+      const queryResult = await OrdersService.queryOrderStatusForClient(userId, targetOrderIdentifier);
+
+      return NextResponse.json({
+        success: true,
+        reply: queryResult.reply,
+        command: {
+          action: "QUERY_ORDER_STATUS",
+          changes: {},
+          explanation: queryResult.reply,
+        },
+        orderInfo: {
+          orderNumber: queryResult.orderNumber,
+          status: queryResult.status,
+          productionStep: queryResult.productionStep,
+          unauthorized: queryResult.unauthorized,
+        },
+        updatedProject: currentProject,
+      });
+    }
 
     // 1. Verificação de Produtos Inexistentes (Não inventar fora do catálogo)
     const unavailableItems = [

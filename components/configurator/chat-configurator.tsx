@@ -540,7 +540,26 @@ export function ChatConfigurator() {
           }
         }
 
-        const followUpOptions = isSummary
+        const isOrderStatus = data.command?.action === "QUERY_ORDER_STATUS";
+
+        const followUpOptions = isOrderStatus
+          ? [
+              {
+                label: "📦 Acompanhar em Meus Pedidos",
+                action: () => {
+                  window.location.href = "/meus-pedidos";
+                },
+              },
+              {
+                label: "📲 Falar com a Fábrica no WhatsApp",
+                action: () => handleShareWhatsApp(),
+              },
+              {
+                label: "👕 Continuar no Configurador",
+                action: () => setIsReviewOpen(true),
+              },
+            ]
+          : isSummary
           ? [
               {
                 label: "✅ APROVAR ORÇAMENTO",
