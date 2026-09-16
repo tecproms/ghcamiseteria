@@ -3,7 +3,7 @@
 // GH Camiseteria & Uniformes Personalizados
 
 import { NextResponse } from "next/server";
-import type { UniformDraftState } from "@/app/api/ai/chat/route";
+import { type UniformDraftState, translateColorToEnglish } from "@/app/api/ai/chat/route";
 
 interface GenerateMockupRequestBody {
   prompts?: {
@@ -19,18 +19,19 @@ function buildPromptsFromDraft(draft: UniformDraftState) {
     draft.modelType === "POLO"
       ? "classic polo shirt with tailored collar and buttons"
       : draft.modelType === "MANGA_LONGA"
-      ? "long sleeve shirt with ribbed cuffs"
+      ? "long sleeve crewneck shirt with ribbed cuffs"
       : draft.modelType === "MOLETOM"
       ? "heavy cotton hoodie pullover sweater"
       : "crewneck short-sleeve t-shirt";
 
-  const colorName = draft.primaryColor?.name || "Navy Blue";
-  const colorHex = draft.primaryColor?.hex || "#1e3a8a";
+  const colorInfo = translateColorToEnglish(draft.primaryColor?.name);
 
   let pocketDesc = "";
   if (draft.hasPocket) {
-    const pColor = draft.pocketColor ? `in ${draft.pocketColor}` : "matching the shirt";
-    pocketDesc = `, tailored front chest pocket ${pColor}`;
+    const pColor = draft.pocketColor && draft.pocketColor.toLowerCase().includes("contraste")
+      ? `in contrasting color (${draft.pocketColor})`
+      : `in matching ${colorInfo.nameEn}`;
+    pocketDesc = `, tailored front chest pocket ${pColor} on the left chest`;
   }
 
   let collarDesc = "";
@@ -43,7 +44,7 @@ function buildPromptsFromDraft(draft: UniformDraftState) {
 
   let frontLogoDesc = "";
   if (draft.logoPlacement === "BOLSO") {
-    frontLogoDesc = ", crisp embroidered corporate logo badge directly on the chest pocket";
+    frontLogoDesc = ", crisp embroidered emblem badge logo stitched directly on the chest pocket";
   } else if (draft.logoPlacement === "PEITO_DIREITO") {
     frontLogoDesc = ", elegant embroidered company logo on the right chest";
   } else if (draft.logoPlacement === "CENTRO_FRONTAL") {
@@ -64,15 +65,15 @@ function buildPromptsFromDraft(draft: UniformDraftState) {
   }
 
   const baseStudioStyle =
-    "commercial studio product photography, clean solid white background, high-end apparel catalog, ghost mannequin presentation, professional softbox lighting, crisp fabric texture details, sharp focus, 8k resolution, photorealistic, masterpiece";
+    "commercial apparel product photography, clean solid plain white background, high-end clothing catalog, invisible ghost mannequin presentation, professional softbox studio lighting, crisp fabric texture details, sharp focus, 8k resolution, photorealistic, centered composition, strictly NO human, NO woman, NO man, NO model, NO face, NO body, clothing product only";
 
-  const frontPrompt = `Front view of a ${colorName} (${colorHex}) ${modelName}${pocketDesc}${collarDesc}${frontLogoDesc}, ${baseStudioStyle}`;
+  const frontPrompt = `Front view of a completely ${colorInfo.nameEn} (${colorInfo.hex}) ${modelName}${pocketDesc}${collarDesc}${frontLogoDesc}, completely ${colorInfo.nameEn} fabric, ${baseStudioStyle}`;
 
-  const backPrompt = `Back view of a ${colorName} (${colorHex}) ${modelName}${collarDesc}${backCustomDesc || ", clean minimalist back without prints"}, ${baseStudioStyle}`;
+  const backPrompt = `Back view of a completely ${colorInfo.nameEn} (${colorInfo.hex}) ${modelName}${collarDesc}${backCustomDesc || ", clean minimalist back without prints"}, completely ${colorInfo.nameEn} fabric, ${baseStudioStyle}`;
 
-  const sleevePrompt = `Side profile 45-degree angle closeup view of the left sleeve of a ${colorName} (${colorHex}) ${modelName}${
+  const sleevePrompt = `Side profile 45-degree angle closeup view of the left sleeve of a completely ${colorInfo.nameEn} (${colorInfo.hex}) ${modelName}${
     draft.logoPlacement === "MANGA" ? ", embroidered logo patch stitched on the sleeve" : ""
-  }, ${baseStudioStyle}`;
+  }, completely ${colorInfo.nameEn} fabric, ${baseStudioStyle}`;
 
   return { frontPrompt, backPrompt, sleevePrompt };
 }
@@ -94,16 +95,16 @@ export async function POST(req: Request) {
     }
 
     if (!frontPrompt) {
-      frontPrompt = "Front view of a navy blue polo shirt with chest pocket and embroidered logo, commercial apparel studio photography, ghost mannequin, white background, 8k";
+      frontPrompt = "Front view of a completely solid pitch jet black polo shirt with chest pocket, commercial apparel product photography, ghost mannequin, clean white background, strictly no human, 8k";
     }
     if (!backPrompt) {
-      backPrompt = "Back view of a navy blue polo shirt, clean back, commercial apparel studio photography, ghost mannequin, white background, 8k";
+      backPrompt = "Back view of a completely solid pitch jet black polo shirt, clean back, commercial apparel product photography, ghost mannequin, clean white background, strictly no human, 8k";
     }
     if (!sleevePrompt) {
-      sleevePrompt = "Side view of a navy blue polo shirt sleeve, commercial apparel studio photography, ghost mannequin, white background, 8k";
+      sleevePrompt = "Side view of a completely solid pitch jet black polo shirt sleeve, commercial apparel product photography, ghost mannequin, clean white background, strictly no human, 8k";
     }
 
-    // Gerar sementes pseudo-únicas baseadas no texto para manter consistência entre as vistas
+    // Gerar sementes pseudo-únicas baseadas no texto e cor para manter consistência entre as vistas
     const hash = Math.abs(
       frontPrompt.split("").reduce((acc, c) => acc + c.charCodeAt(0), 100)
     );

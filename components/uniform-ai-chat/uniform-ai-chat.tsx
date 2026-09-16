@@ -15,6 +15,7 @@ import {
   Shirt,
   Loader2,
   ChevronRight,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +29,7 @@ interface ChatMessage {
   timestamp: string;
   quickReplies?: string[];
   logoAttachment?: string | null;
+  isLogoPrompt?: boolean;
 }
 
 interface GeneratedImages {
@@ -67,7 +69,7 @@ export function UniformAiChat() {
       id: "msg-init",
       role: "assistant",
       content:
-        "Olá! 👋 Sou o **Consultor Virtual da GH Camiseteria**.\n\nVou te guiar passo a passo para criar o uniforme perfeito para o seu projeto, definindo modelo, tecido, cores, bolso, gola e logomarca.\n\nPara começarmos, **qual é a finalidade principal do seu uniforme?**",
+        "Olá! 👋 Sou o **Consultor Virtual da GH Camiseteria**.\n\nVou te guiar passo a passo para criar o uniforme perfeito para o seu projeto, definindo modelo, tecido, cores, bolso, gola, logomarca e estampas.\n\nPara começarmos, **qual é a finalidade principal do seu uniforme?**",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       quickReplies: [
         "🏢 Empresa / Escritório",
@@ -79,17 +81,19 @@ export function UniformAiChat() {
     setMessages([initialGreeting]);
   }, []);
 
-  // Enviar mensagem do usuário (seja por digitação ou clique em botão)
+  // Enviar mensagem do usuário
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputValue).trim();
-    if (!text && !attachedLogo) return;
+    const currentLogo = attachedLogo || draft.logoUrl || null;
+
+    if (!text && !currentLogo) return;
 
     const userMessage: ChatMessage = {
       id: `usr-${Date.now()}`,
       role: "user",
-      content: text || "Anexo da Logomarca para o uniforme.",
+      content: text || "Logomarca anexada para o uniforme.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      logoAttachment: attachedLogo,
+      logoAttachment: attachedLogo || undefined,
     };
 
     const newHistory = [...messages, userMessage];
@@ -99,13 +103,18 @@ export function UniformAiChat() {
     setLogoFileName(null);
     setIsTyping(true);
 
+    const draftToSend: UniformDraftState = {
+      ...draft,
+      logoUrl: currentLogo,
+    };
+
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: newHistory.map((m) => ({ role: m.role, content: m.content })),
-          draft,
+          draft: draftToSend,
         }),
       });
 
@@ -115,8 +124,17 @@ export function UniformAiChat() {
         throw new Error(data.error || "Falha ao consultar o especialista de IA.");
       }
 
-      const updatedDraft = data.draft || draft;
+      const updatedDraft: UniformDraftState = {
+        ...draftToSend,
+        ...(data.draft || {}),
+        logoUrl: currentLogo || data.draft?.logoUrl || null,
+      };
       setDraft(updatedDraft);
+
+      const isLogoRequest = Boolean(
+        data.reply?.toLowerCase().includes("anexe a sua logomarca") ||
+        data.reply?.toLowerCase().includes("botão de clipe")
+      );
 
       const botMessage: ChatMessage = {
         id: `bot-${Date.now()}`,
@@ -124,6 +142,7 @@ export function UniformAiChat() {
         content: data.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         quickReplies: data.quickReplies || [],
+        isLogoPrompt: isLogoRequest,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -143,7 +162,7 @@ export function UniformAiChat() {
           role: "assistant",
           content: `Tive uma breve oscilação na conexão (${errMsg}). Poderia tentar responder novamente?`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          quickReplies: ["Tentar novamente", "Preto", "Azul Marinho", "Com bolso", "Sem bolso"],
+          quickReplies: ["Tentar novamente", "Preto Elegante", "Azul Marinho", "Com bolso", "Sem bolso"],
         },
       ]);
     } finally {
@@ -188,8 +207,18 @@ export function UniformAiChat() {
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
       setAttachedLogo(base64);
+      setDraft((prev) => ({ ...prev, logoUrl: base64 }));
     };
     reader.readAsDataURL(file);
+  };
+
+  // Clique em respostas rápidas
+  const handleQuickReplyClick = (reply: string) => {
+    if (reply.includes("Anexar Logo") || reply.includes("selecionei")) {
+      fileInputRef.current?.click();
+      return;
+    }
+    handleSendMessage(reply);
   };
 
   // Reiniciar conversa
@@ -218,7 +247,7 @@ export function UniformAiChat() {
 
   // Compartilhar e Finalizar no WhatsApp Oficial
   const handleWhatsAppOrder = () => {
-    const qty = draft.quantity || 25;
+    const qty = draft.quantity || 20;
     const unitPrice = draft.modelType === "POLO" ? 48 : 35;
     const totalPrice = qty * unitPrice;
 
@@ -226,21 +255,30 @@ export function UniformAiChat() {
       ? `Sim (Cor: ${draft.pocketColor || "Mesma da peça"})`
       : "Não (Sem bolso frontal)";
 
+    const logoInfo = draft.logoPlacement
+      ? `${draft.logoPlacement === "BOLSO" ? "No Bolso do Peito" : draft.logoPlacement} ${draft.logoUrl ? "(Arquivo anexado)" : ""}`
+      : "A combinar";
+
+    const backInfo = draft.customBackText
+      ? `"${draft.customBackText}"`
+      : draft.customBackNumber
+      ? `Número: ${draft.customBackNumber}`
+      : "Lisa sem estampa";
+
     const message =
       `Olá, equipe da *GH Camiseteria*! 👋\n\n` +
       `Montei meu uniforme com o *Consultor Virtual do site* e gostaria de aprovar e solicitar a produção:\n\n` +
       `🎯 *Finalidade:* ${draft.purpose || "Corporativo / Geral"}\n` +
       `👕 *Modelo:* ${draft.modelName || (draft.modelType === "POLO" ? "Camisa Polo" : "Camiseta Tradicional")}\n` +
       `🧵 *Tecido:* ${draft.fabric || (draft.modelType === "POLO" ? "Malha Piquet" : "Dry Fit / Algodão")}\n` +
-      `🎨 *Cor Principal:* ${draft.primaryColor?.name || "Padrão"}\n` +
+      `🎨 *Cor Principal:* ${draft.primaryColor?.name || "Preto"}\n` +
       `👜 *Bolso no Peito:* ${pocketInfo}\n` +
-      `👔 *Tipo de Gola:* ${draft.collarType || "Padrão"}\n` +
-      `📍 *Aplicação de Logo:* ${draft.logoPlacement || "Peito Esquerdo"}\n` +
-      (draft.customBackText ? `✍️ *Texto nas Costas:* "${draft.customBackText}"\n` : "") +
-      (draft.customBackNumber ? `🔢 *Número nas Costas:* "${draft.customBackNumber}"\n` : "") +
+      `👔 *Tipo de Gola:* ${draft.collarType || "Polo Tradicional"}\n` +
+      `📍 *Aplicação de Logo:* ${logoInfo}\n` +
+      `🔙 *Estampa nas Costas:* ${backInfo}\n` +
       `📦 *Quantidade Estimada:* ${qty} unidades\n` +
       `💰 *Estimativa de Investimento:* R$ ${unitPrice.toFixed(2)}/un. (Total: R$ ${totalPrice.toFixed(2)})\n\n` +
-      `Poderiam me confirmar os prazos de confecção e onde envio meu arquivo em alta resolução?`;
+      `Gostaria de formalizar o pedido e enviar o arquivo vetorizado da arte. Como procedemos?`;
 
     const phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999";
     const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
@@ -303,8 +341,12 @@ export function UniformAiChat() {
             4. Logo {draft.logoPlacement && <CheckCircle2 className="h-3 w-3" />}
           </span>
           <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+          <span className={`flex items-center gap-1 ${draft.customBackText || draft.backCustomizationType === "NONE" ? "text-emerald-600 dark:text-emerald-400 font-bold" : ""}`}>
+            5. Costas {(draft.customBackText || draft.backCustomizationType === "NONE") && <CheckCircle2 className="h-3 w-3" />}
+          </span>
+          <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
           <span className={`flex items-center gap-1 ${isCompleted ? "text-emerald-600 dark:text-emerald-400 font-bold" : ""}`}>
-            5. Fotos IA {isCompleted && <CheckCircle2 className="h-3 w-3" />}
+            6. Fotos IA {isCompleted && <CheckCircle2 className="h-3 w-3" />}
           </span>
         </div>
 
@@ -341,7 +383,22 @@ export function UniformAiChat() {
                   >
                     {m.content}
 
-                    {/* Exibição de imagem anexada se houver */}
+                    {/* Botão de Upload Embutido se for pedido de Logo */}
+                    {isBot && m.isLogoPrompt && (
+                      <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-zinc-700">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold text-xs gap-2 shadow-sm"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          {draft.logoUrl ? "Trocar Imagem da Logomarca" : "Anexar Imagem da Logomarca Agora"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Exibição de imagem anexada na mensagem do usuário */}
                     {m.logoAttachment && (
                       <div className="mt-2.5 pt-2.5 border-t border-blue-500/40">
                         <p className="text-[11px] font-medium opacity-90 mb-1.5 flex items-center gap-1">
@@ -371,7 +428,7 @@ export function UniformAiChat() {
                           key={idx}
                           type="button"
                           disabled={isTyping}
-                          onClick={() => handleSendMessage(reply)}
+                          onClick={() => handleQuickReplyClick(reply)}
                           className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 hover:border-[#d4af37] dark:hover:border-[#d4af37] hover:text-[#d4af37] dark:hover:text-[#d4af37] shadow-xs transition-all active:scale-95 text-left cursor-pointer"
                         >
                           {reply}
@@ -406,18 +463,19 @@ export function UniformAiChat() {
 
         {/* Barra de Entrada / Digitação */}
         <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40 space-y-2">
-          {/* Chip de Anexo Ativo */}
-          {attachedLogo && (
+          {/* Chip de Anexo Ativo ou Logo Persistida */}
+          {(attachedLogo || draft.logoUrl) && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-xl text-xs text-blue-800 dark:text-blue-300">
               <div className="flex items-center gap-2 truncate">
                 <Paperclip className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-                <span className="truncate">Logo anexada: {logoFileName || "arquivo"}</span>
+                <span className="truncate">Logomarca ativa: {logoFileName || "arquivo anexado"}</span>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setAttachedLogo(null);
                   setLogoFileName(null);
+                  setDraft((prev) => ({ ...prev, logoUrl: null }));
                 }}
                 className="text-xs text-red-500 hover:text-red-700 font-bold ml-2 cursor-pointer"
               >
@@ -494,7 +552,7 @@ export function UniformAiChat() {
           </div>
 
           <CardContent className="p-4 space-y-4">
-            {/* Visualizador de Imagens */}
+            {/* Visualizador de Imagens com Logo e Textos Sobrepostos */}
             <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center">
               {isGeneratingImages ? (
                 <div className="flex flex-col items-center justify-center p-6 text-center gap-3">
@@ -503,16 +561,83 @@ export function UniformAiChat() {
                     Gerando fotos fotorrealistas de estúdio...
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                    A IA de imagem está aplicando as cores, bolso e detalhes em manequim de catálogo.
+                    A IA está renderizando o tecido, cor e bolso em manequim de catálogo.
                   </p>
                 </div>
               ) : generatedImages ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={generatedImages[activeImageView]}
-                  alt="Mockup do Uniforme por IA"
-                  className="h-full w-full object-cover"
-                />
+                <div className="relative w-full h-full">
+                  {/* Imagem de Fundo Gerada pela IA */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={generatedImages[activeImageView]}
+                    alt="Mockup do Uniforme por IA"
+                    className="h-full w-full object-cover"
+                  />
+
+                  {/* Sobreposição da Logo Real do Cliente na Frente */}
+                  {activeImageView === "front" && draft.logoUrl && (
+                    <div
+                      className={`absolute transition-all duration-300 pointer-events-none flex items-center justify-center ${
+                        draft.logoPlacement === "BOLSO"
+                          ? "top-[38%] left-[60%] w-[13%] h-[13%]"
+                          : draft.logoPlacement === "PEITO_DIREITO"
+                          ? "top-[33%] left-[34%] w-[14%] h-[14%]"
+                          : draft.logoPlacement === "CENTRO_FRONTAL"
+                          ? "top-[37%] left-1/2 -translate-x-1/2 w-[22%] h-[22%]"
+                          : "top-[33%] left-[60%] w-[14%] h-[14%]"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={draft.logoUrl}
+                        alt="Logomarca Aplicada"
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Sobreposição da Logo Real na Manga */}
+                  {activeImageView === "sleeve" && draft.logoUrl && draft.logoPlacement === "MANGA" && (
+                    <div className="absolute top-[42%] left-1/2 -translate-x-1/2 w-[20%] h-[20%] flex items-center justify-center pointer-events-none">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={draft.logoUrl}
+                        alt="Logomarca na Manga"
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Sobreposição da Logo e Texto nas Costas */}
+                  {activeImageView === "back" && (
+                    <>
+                      {draft.logoUrl && draft.logoPlacement === "COSTAS" && (
+                        <div className="absolute top-[26%] left-1/2 -translate-x-1/2 w-[24%] h-[24%] flex items-center justify-center pointer-events-none">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={draft.logoUrl}
+                            alt="Logomarca nas Costas"
+                            className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+                          />
+                        </div>
+                      )}
+                      {draft.customBackText && (
+                        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[75%]">
+                          <span className="font-extrabold uppercase tracking-widest text-white/95 text-xs sm:text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] bg-black/25 px-3 py-1 rounded backdrop-blur-[1px]">
+                            {draft.customBackText}
+                          </span>
+                        </div>
+                      )}
+                      {draft.customBackNumber && (
+                        <div className="absolute top-[42%] left-1/2 -translate-x-1/2 text-center pointer-events-none">
+                          <span className="font-black text-3xl sm:text-4xl text-white/95 drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)]">
+                            {draft.customBackNumber}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center gap-2 text-slate-400 dark:text-zinc-500">
                   <Shirt className="h-12 w-12 stroke-[1.2] opacity-50" />
@@ -618,9 +743,31 @@ export function UniformAiChat() {
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
                 <span className="text-slate-500 dark:text-zinc-400">Posição da Logo:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {draft.logoPlacement || "Não definida"}
+                  {draft.logoPlacement === "BOLSO" ? "No Bolso do Peito" : (draft.logoPlacement || "Não definida")}
                 </span>
               </div>
+
+              {draft.logoUrl && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-slate-500 dark:text-zinc-400">Logomarca:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">Anexada</span>
+                    <div className="h-6 w-6 rounded border border-slate-300 dark:border-zinc-700 bg-white/10 p-0.5 overflow-hidden flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={draft.logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {draft.customBackText && (
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-slate-500 dark:text-zinc-400">Estampa Costas:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {draft.customBackText}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Botão Comercial Oficial */}

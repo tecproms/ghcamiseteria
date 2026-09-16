@@ -10,7 +10,7 @@ export interface UniformDraftState {
   modelType?: "TRADITIONAL" | "POLO" | "MANGA_LONGA" | "REGATA" | "MOLETOM";
   modelName?: string;
   fabric?: string;
-  primaryColor?: { name: string; hex: string };
+  primaryColor?: { name: string; hex: string; nameEn?: string };
   hasPocket?: boolean;
   pocketColor?: string;
   collarType?: string;
@@ -18,6 +18,8 @@ export interface UniformDraftState {
   sleeveColor?: string;
   logoPlacement?: "PEITO_ESQUERDO" | "PEITO_DIREITO" | "CENTRO_FRONTAL" | "BOLSO" | "MANGA" | "COSTAS" | "NENHUM";
   logoUrl?: string | null;
+  hasAskedLogo?: boolean;
+  backCustomizationType?: "NONE" | "COMPANY_NAME" | "INDIVIDUAL_NUMBER";
   customBackText?: string;
   customBackNumber?: string;
   quantity?: number;
@@ -36,59 +38,50 @@ interface ChatRequestBody {
   draft?: UniformDraftState;
 }
 
+export function translateColorToEnglish(ptName?: string): { nameEn: string; hex: string } {
+  if (!ptName) return { nameEn: "solid pitch jet black", hex: "#111827" };
+  const lower = ptName.toLowerCase();
+  if (lower.includes("preto")) return { nameEn: "solid pitch jet black", hex: "#111827" };
+  if (lower.includes("marinho")) return { nameEn: "deep dark navy blue", hex: "#0f172a" };
+  if (lower.includes("azul")) return { nameEn: "vibrant royal blue", hex: "#1d4ed8" };
+  if (lower.includes("branco")) return { nameEn: "pure crisp white", hex: "#ffffff" };
+  if (lower.includes("cinza chumbo") || lower.includes("chumbo")) return { nameEn: "dark charcoal grey", hex: "#374151" };
+  if (lower.includes("cinza")) return { nameEn: "heather grey", hex: "#6b7280" };
+  if (lower.includes("vermelho")) return { nameEn: "deep crimson red", hex: "#dc2626" };
+  if (lower.includes("verde bandeira")) return { nameEn: "vibrant emerald green", hex: "#16a34a" };
+  if (lower.includes("verde")) return { nameEn: "dark bottle green", hex: "#15803d" };
+  if (lower.includes("amarelo")) return { nameEn: "warm bright yellow", hex: "#eab308" };
+  if (lower.includes("laranja")) return { nameEn: "bright vibrant orange", hex: "#ea580c" };
+  if (lower.includes("vinho") || lower.includes("bordo") || lower.includes("bordô")) return { nameEn: "deep wine burgundy", hex: "#831843" };
+  return { nameEn: "solid pitch jet black", hex: "#111827" };
+}
+
 const SYSTEM_PROMPT = `
 Você é o Consultor Técnico Especialista em Uniformes da "GH Camiseteria & Uniformes Personalizados".
 Seu papel é guiar o cliente de forma acolhedora, objetiva e profissional para definir 100% dos detalhes do seu uniforme ideal.
 
-REGRAS FUNDAMENTAIS DE TRIAGEM E FLUXO:
-1. Faça uma ou no máximo duas perguntas por vez, mantendo o diálogo ágil e agradável.
-2. Acompanhe a triagem inteligente de acordo com as variações da peça:
-   - ETAPA 1 (Finalidade & Tipo de Peça): Descubra se é para empresa/escritório, time esportivo, evento, indústria, etc., e qual o tipo base de peça (Camiseta Tradicional, Camisa Polo, Manga Longa, etc.).
-   - ETAPA 2 (Tecido & Cor Principal): Sugira o melhor tecido para a finalidade (ex: Piquet para polo corporativa, Dry Fit para esportes/climas quentes, Algodão 30.1 para eventos e dia a dia) e pergunte a cor principal desejada.
-   - ETAPA 3 (Modelagem & Bolso - OBRIGATÓRIO PERGUNTAR SE TEM BOLSO):
-     * Pergunte explicitamente se o uniforme terá BOLSO frontal no peito ou SEM BOLSO.
-     * Se o cliente escolher COM BOLSO: pergunte se o bolso será da mesma cor da camisa ou em cor de contraste (ex: bolso preto em camisa cinza).
-     * Se for Camisa Polo: pergunte detalhes da gola e peitilho (cor sólida ou com friso/contraste).
-     * Se for Camiseta: pergunte o tipo de gola (Gola Careca/Redonda tradicional ou Gola V).
-   - ETAPA 4 (Logo & Personalizações):
-     * Pergunte sobre a aplicação da Logo: onde prefere colocar? (Peito esquerdo tradicional, Peito direito, Centralizada, No Bolso - se tiver bolso, na Manga, ou nas Costas).
-     * Pergunte se deseja personalização nas costas (Logo grande nas costas, Nome da empresa/pessoa, Número esportivo ou Lisa).
-   - ETAPA 5 (Quantidade & Grade): Pergunte a quantidade aproximada de peças e os tamanhos (P, M, G, GG, XG).
-   - ETAPA 6 (Finalização & Aprovação): Faça um resumo completo e pergunte se o cliente aprova o design para gerar os mockups fotorrealistas de estúdio.
+REGRAS FUNDAMENTAIS DE TRIAGEM E FLUXO OBRIGATÓRIAS:
+1. Faça uma pergunta por vez, mantendo o diálogo ágil e agradável.
+2. ETAPAS RIGOROSAS:
+   - ETAPA 1 (Finalidade & Modelo): Descubra a finalidade (Empresa, Time, Evento, Indústria) e defina o modelo (Camisa Polo Corporativa, Camiseta Dry Fit, etc.).
+   - ETAPA 2 (Cor Principal): Pergunte a cor principal. Sempre converta a cor para inglês ("solid pitch jet black", "deep dark navy blue", "pure crisp white", etc.).
+   - ETAPA 3 (Modelagem & Bolso):
+     * Pergunte OBRIGATORIAMENTE se terá BOLSO no peito ou SEM BOLSO.
+     * Se COM BOLSO: pergunte se a cor do bolso será a mesma da camisa ou em contraste.
+     * Pergunte o tipo de gola (Polo, Careca, V).
+   - ETAPA 4 (Logomarca e Anexo):
+     * Pergunte onde aplicar a logo (No Bolso do Peito, Peito Esquerdo, Peito Direito, Costas, etc.).
+     * OBRIGATÓRIO: Peça explicitamente para o usuário anexar o arquivo da sua logo usando o botão de clipe (📎).
+   - ETAPA 5 (Costas & Nome da Empresa):
+     * Pergunte se deseja estampar nas costas (Sem estampa, Nome da Empresa, Nome Individual + Número).
+     * SE O CLIENTE ESCOLHER "Nome da Empresa": PERGUNTE EXPLICITAMENTE QUAL É O NOME DA EMPRESA e aguarde a resposta dele antes de passar para a quantidade!
+   - ETAPA 6 (Quantidade): Pergunte a quantidade aproximada de peças.
+   - ETAPA 7 (Aprovação Final): Faça o resumo completo e pergunte se aprova para gerar os mockups fotorrealistas de estúdio.
 
-FORMATO OBRIGATÓRIO DA SUA RESPOSTA:
-Você DEVE SEMPRE responder APENAS com um objeto JSON válido, sem texto antes ou depois, seguindo esta estrutura:
-{
-  "reply": "Texto da sua mensagem para o cliente, acolhedor e com formatação markdown limpa (emoticons moderados)",
-  "quickReplies": ["Opção 1", "Opção 2", "Opção 3"],
-  "draft": {
-    "purpose": "Finalidade identificada",
-    "modelType": "TRADITIONAL" | "POLO" | "MANGA_LONGA" | "REGATA" | "MOLETOM",
-    "modelName": "Nome do modelo (ex: Camisa Polo Corporativa)",
-    "fabric": "Tecido escolhido",
-    "primaryColor": { "name": "Nome da cor", "hex": "#HEX" },
-    "hasPocket": true | false,
-    "pocketColor": "Cor do bolso se houver",
-    "collarType": "Gola Polo" | "Gola Careca" | "Gola V",
-    "collarColor": "Cor da gola",
-    "sleeveColor": "Cor da manga/friso",
-    "logoPlacement": "PEITO_ESQUERDO" | "PEITO_DIREITO" | "CENTRO_FRONTAL" | "BOLSO" | "MANGA" | "COSTAS" | "NENHUM",
-    "customBackText": "Texto das costas se houver",
-    "customBackNumber": "Número se houver",
-    "quantity": 25,
-    "currentStep": "Etapa atual"
-  },
-  "isCompleted": false,
-  "imagePrompts": null
-}
-
-QUANDO O CLIENTE APROVAR O RESUMO FINAL:
-Defina "isCompleted": true e forneça "imagePrompts" com a seguinte estrutura em inglês fotorrealista para IA de imagem de catálogo comercial de vestuário:
-"imagePrompts": {
-  "frontPrompt": "Commercial studio apparel product photography, front view of a [cor] [modelo] made of [tecido], [detalhe de bolso se tiver: tailored chest pocket in [cor] with embroidered logo] [detalhe de gola], clean ghost mannequin presentation, professional softbox lighting, solid white background, sharp focus, 8k resolution, ultra detailed fabric texture",
-  "backPrompt": "Commercial studio apparel product photography, back view of a [cor] [modelo] [detalhes de estampa nas costas se houver], clean ghost mannequin presentation, professional lighting, solid white background, 8k resolution",
-  "sleevePrompt": "Commercial studio apparel product photography, side profile 45-degree angle closeup view of a [cor] [modelo], tailored sleeve cuff [detalhe de logo de manga se houver], ghost mannequin, clean studio white background, 8k resolution"
-}
+REQUISITOS CRÍTICOS DO PROMPT DE IMAGEM AO FINALIZAR ("isCompleted": true):
+- O prompt DEVE ser 100% em inglês.
+- A cor DEVE ser explícita (ex: "solid pitch jet black #111827 fabric, pitch black collar, pitch black sleeves").
+- OBRIGATÓRIO INCLUIR: "commercial apparel product photography, clean solid white background, high-end clothing catalog, invisible ghost mannequin, softbox studio lighting, strictly NO human, NO woman, NO man, NO model, NO face, NO body, clothing product only".
 `;
 
 export async function POST(req: Request) {
@@ -100,13 +93,11 @@ export async function POST(req: Request) {
     const groqApiKey = (await SettingsService.get("GROQ_API_KEY")) || process.env.GROQ_API_KEY;
     let groqModel = (await SettingsService.get("GROQ_MODEL")) || process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
-    // Se o modelo configurado for o genérico antigo da OpenAI, substitui por um compatível com a Groq
     if (!groqModel || groqModel.includes("openai/") || groqModel.includes("gpt-")) {
       groqModel = "llama-3.3-70b-versatile";
     }
 
     if (!groqApiKey) {
-      // Fallback gracioso se a chave da Groq ainda não estiver preenchida no admin
       return handleLocalFallback(messages, draft);
     }
 
@@ -132,7 +123,7 @@ export async function POST(req: Request) {
         model: groqModel,
         messages: conversationPayload,
         response_format: { type: "json_object" },
-        temperature: 0.4,
+        temperature: 0.3,
         max_tokens: 1024,
       }),
     });
@@ -157,15 +148,8 @@ export async function POST(req: Request) {
         imagePrompts: parsed.imagePrompts || null,
       });
     } catch {
-      console.warn("Resposta da Groq não foi um JSON perfeito:", rawContent);
-      return NextResponse.json({
-        success: true,
-        reply: rawContent,
-        quickReplies: ["Sim, continuar", "Alterar cor", "Adicionar bolso", "Finalizar"],
-        draft,
-        isCompleted: false,
-        imagePrompts: null,
-      });
+      console.warn("Resposta da Groq não foi um JSON perfeito, acionando fallback estruturado:", rawContent);
+      return handleLocalFallback(messages, draft);
     }
   } catch (error: unknown) {
     console.error("Erro na rota /api/ai/chat:", error);
@@ -175,13 +159,14 @@ export async function POST(req: Request) {
 }
 
 /**
- * Fallback inteligente caso a chave da Groq não esteja disponível
+ * Fallback inteligente e estritamente estruturado
  */
 function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) {
   const lastUserMsg = messages
     .slice()
     .reverse()
-    .find((m) => m.role === "user")?.content?.toLowerCase() || "";
+    .find((m) => m.role === "user")?.content?.trim() || "";
+  const lowerMsg = lastUserMsg.toLowerCase();
 
   const updatedDraft: UniformDraftState = { ...draft };
 
@@ -190,86 +175,177 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
   let isCompleted = false;
   let imagePrompts = null;
 
-  // Triagem passo a passo por palavras-chave
-  if (!updatedDraft.purpose && !updatedDraft.modelType) {
-    if (lastUserMsg.includes("empresa") || lastUserMsg.includes("corporativo")) {
+  // ETAPA 1: Finalidade & Tipo de Peça
+  if (!updatedDraft.purpose || !updatedDraft.modelType) {
+    if (lowerMsg.includes("empresa") || lowerMsg.includes("escritório") || lowerMsg.includes("corporativo")) {
       updatedDraft.purpose = "Corporativo / Empresa";
       updatedDraft.modelType = "POLO";
       updatedDraft.modelName = "Camisa Polo Corporativa";
-      reply = "Excelente! Para empresas e escritórios, a **Camisa Polo** em malha Piquet transmite seriedade e elegância.\n\nQual é a cor principal que você imagina para o uniforme da sua equipe?";
+      updatedDraft.fabric = "Piquet 50% Algodão 50% Poliéster Premium";
+      reply = "Excelente escolha! Para ambientes corporativos e escritórios, a **Camisa Polo em malha Piquet** é a melhor opção, combinando alinhamento, conforto e alta durabilidade.\n\nQual é a **cor principal** que você deseja para o uniforme?";
       quickReplies = ["Preto Elegante", "Azul Marinho", "Branco Clássico", "Cinza Chumbo"];
-    } else if (lastUserMsg.includes("time") || lastUserMsg.includes("esport")) {
+    } else if (lowerMsg.includes("time") || lowerMsg.includes("esport")) {
       updatedDraft.purpose = "Time Esportivo";
       updatedDraft.modelType = "TRADITIONAL";
       updatedDraft.modelName = "Camiseta Esportiva Dry Fit";
-      updatedDraft.fabric = "Dry Fit 100% Poliéster";
-      reply = "Ótima escolha! Para práticas esportivas e times, recomendamos o tecido **Dry Fit**, super leve e de rápida absorção.\n\nQual a cor predominante do seu uniforme?";
+      updatedDraft.fabric = "Dry Fit 100% Poliéster Tecnológico";
+      reply = "Perfeito! Para times e equipes esportivas, recomendamos o tecido **Dry Fit**, super leve, respirável e com proteção UV.\n\nQual a **cor predominante** do seu uniforme?";
       quickReplies = ["Azul Royal", "Preto", "Vermelho", "Verde Bandeira"];
+    } else if (lowerMsg.includes("evento") || lowerMsg.includes("promocional")) {
+      updatedDraft.purpose = "Evento / Promocional";
+      updatedDraft.modelType = "TRADITIONAL";
+      updatedDraft.modelName = "Camiseta Promocional";
+      updatedDraft.fabric = "Algodão 30.1 Penteado";
+      reply = "Ótimo! Para eventos e feiras, a **Camiseta em Algodão 30.1** oferece toque macio e excelente fidelidade nas estampas.\n\nQual a **cor principal** desejada?";
+      quickReplies = ["Preto Elegante", "Branco Clássico", "Azul Marinho", "Cinza"];
     } else {
-      reply = "Olá! 👋 Sou o Consultor Virtual da **GH Camiseteria**.\n\nPara começarmos com precisão, qual é a finalidade principal do seu uniforme?";
-      quickReplies = ["🏢 Empresa / Corporativo", "⚽ Time / Equipe Esportiva", "🎉 Evento / Promocional", "👕 Uso Geral / Outro"];
+      reply = "Olá! 👋 Sou o Consultor Virtual da **GH Camiseteria**.\n\nVou guiar a montagem completa do seu uniforme. Para iniciarmos, **qual é a finalidade principal do seu projeto?**";
+      quickReplies = ["🏢 Empresa / Escritório", "⚽ Time Esportivo", "🎉 Evento / Promocional", "🏭 Indústria / Operacional"];
     }
-  } else if (!updatedDraft.primaryColor) {
-    let colorName = "Azul Marinho";
-    let hex = "#1e3a8a";
-    if (lastUserMsg.includes("preto")) { colorName = "Preto"; hex = "#111827"; }
-    else if (lastUserMsg.includes("branco")) { colorName = "Branco"; hex = "#ffffff"; }
-    else if (lastUserMsg.includes("cinza")) { colorName = "Cinza Chumbo"; hex = "#4b5563"; }
-    else if (lastUserMsg.includes("vermelho")) { colorName = "Vermelho"; hex = "#b91c1c"; }
-    else if (lastUserMsg.includes("verde")) { colorName = "Verde"; hex = "#15803d"; }
-    else if (lastUserMsg.includes("azul")) { colorName = "Azul Royal"; hex = "#1d4ed8"; }
+  }
+  // ETAPA 2: Cor Principal
+  else if (!updatedDraft.primaryColor) {
+    const { nameEn, hex } = translateColorToEnglish(lastUserMsg);
+    let colorName = "Preto";
+    if (lowerMsg.includes("azul marinho") || lowerMsg.includes("marinho")) colorName = "Azul Marinho";
+    else if (lowerMsg.includes("azul")) colorName = "Azul Royal";
+    else if (lowerMsg.includes("branco")) colorName = "Branco";
+    else if (lowerMsg.includes("cinza chumbo") || lowerMsg.includes("chumbo")) colorName = "Cinza Chumbo";
+    else if (lowerMsg.includes("cinza")) colorName = "Cinza";
+    else if (lowerMsg.includes("vermelho")) colorName = "Vermelho";
+    else if (lowerMsg.includes("verde")) colorName = "Verde";
+    else if (lowerMsg.includes("amarelo")) colorName = "Amarelo";
+    else if (lowerMsg.includes("laranja")) colorName = "Laranja";
 
-    updatedDraft.primaryColor = { name: colorName, hex };
-    reply = `Perfeito, a cor **${colorName}** fica espetacular! ✨\n\nAgora sobre a modelagem: sua peça terá **BOLSO no peito** ou prefere **SEM BOLSO**?`;
+    updatedDraft.primaryColor = { name: colorName, hex, nameEn };
+    reply = `Perfeito, a cor **${colorName}** transmite muita personalidade! ✨\n\nAgora sobre a modelagem: a sua peça terá **BOLSO frontal no peito** ou prefere **SEM BOLSO**?`;
     quickReplies = ["👜 Com Bolso no Peito", "🚫 Sem Bolso (Lisa)"];
-  } else if (updatedDraft.hasPocket === undefined) {
-    if (lastUserMsg.includes("com bolso") || lastUserMsg.includes("bolso no peito") || lastUserMsg.includes("sim")) {
+  }
+  // ETAPA 3: Bolso no Peito
+  else if (updatedDraft.hasPocket === undefined) {
+    if (lowerMsg.includes("com bolso") || lowerMsg.includes("sim") || lowerMsg.includes("bolso")) {
       updatedDraft.hasPocket = true;
-      reply = "Entendido, faremos com bolso no peito! O bolso será da **mesma cor da camisa** ou prefere em **cor contrastante**?";
+      reply = "Excelente, faremos com bolso no peito! O bolso será da **mesma cor da camisa** ou prefere em **cor de contraste**?";
       quickReplies = ["Mesma cor da peça", "Contraste em Preto", "Contraste em Branco"];
     } else {
       updatedDraft.hasPocket = false;
-      reply = "Perfeito, corte limpo sem bolso frontal.\n\nE sobre a gola: qual modelo você prefere?";
+      reply = "Perfeito, corte limpo e moderno sem bolso frontal.\n\nE sobre a gola: qual modelo você prefere?";
       quickReplies = updatedDraft.modelType === "POLO"
-        ? ["Gola Polo Tradicional", "Gola Polo com Friso Dourado", "Gola Polo com Friso Branco"]
+        ? ["Gola Polo Tradicional", "Gola Polo com Friso Branco", "Gola Polo com Friso Dourado"]
         : ["Gola Careca (Redonda)", "Gola V"];
     }
-  } else if (!updatedDraft.collarType) {
-    updatedDraft.collarType = lastUserMsg.includes("v") ? "Gola V" : "Gola Careca";
-    reply = `Gola definida com sucesso: **${updatedDraft.collarType}**.\n\nOnde você gostaria de aplicar a **Logomarca** da sua empresa ou equipe?`;
+  }
+  // ETAPA 3B: Cor do bolso (se houver)
+  else if (updatedDraft.hasPocket && !updatedDraft.pocketColor) {
+    updatedDraft.pocketColor = lowerMsg.includes("contraste") ? lastUserMsg : "Mesma cor da peça";
+    reply = `Bolso configurado com sucesso (${updatedDraft.pocketColor})! 👍\n\nE sobre a gola da sua peça, qual modelo você prefere?`;
+    quickReplies = updatedDraft.modelType === "POLO"
+      ? ["Gola Polo Tradicional", "Gola Polo com Friso Branco", "Gola Polo com Friso Dourado"]
+      : ["Gola Careca (Redonda)", "Gola V"];
+  }
+  // ETAPA 3C: Tipo de Gola
+  else if (!updatedDraft.collarType) {
+    if (lowerMsg.includes("polo")) updatedDraft.collarType = "Gola Polo Tradicional";
+    else if (lowerMsg.includes("v")) updatedDraft.collarType = "Gola V";
+    else updatedDraft.collarType = "Gola Careca (Redonda)";
+
+    reply = `Gola definida: **${updatedDraft.collarType}**.\n\nOnde você gostaria de aplicar a **Logomarca** da sua empresa ou equipe?`;
     quickReplies = updatedDraft.hasPocket
-      ? ["No Bolso do Peito", "Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Costas"]
-      : ["Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Costas"];
-  } else if (!updatedDraft.logoPlacement) {
+      ? ["No Bolso do Peito", "Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"]
+      : ["Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"];
+  }
+  // ETAPA 4: Posição da Logo
+  else if (!updatedDraft.logoPlacement) {
     let placement: UniformDraftState["logoPlacement"] = "PEITO_ESQUERDO";
-    if (lastUserMsg.includes("bolso")) placement = "BOLSO";
-    else if (lastUserMsg.includes("direito")) placement = "PEITO_DIREITO";
-    else if (lastUserMsg.includes("central") || lastUserMsg.includes("centro")) placement = "CENTRO_FRONTAL";
-    else if (lastUserMsg.includes("costas")) placement = "COSTAS";
+    if (lowerMsg.includes("bolso")) placement = "BOLSO";
+    else if (lowerMsg.includes("direito")) placement = "PEITO_DIREITO";
+    else if (lowerMsg.includes("central") || lowerMsg.includes("centro")) placement = "CENTRO_FRONTAL";
+    else if (lowerMsg.includes("manga")) placement = "MANGA";
+    else if (lowerMsg.includes("costas")) placement = "COSTAS";
 
     updatedDraft.logoPlacement = placement;
-    reply = `Logo configurada para aplicação: **${placement}**.\n\nVocê deseja estampar algum texto, nome ou número nas costas?`;
-    quickReplies = ["Sem estampa nas costas", "Nome da Empresa", "Nome Individual + Número"];
-  } else if (!updatedDraft.quantity) {
+    updatedDraft.hasAskedLogo = true;
+
+    reply = `Aplicação de logo configurada para: **${placement === "BOLSO" ? "No Bolso do Peito" : placement}**.\n\n📎 **Por favor, anexe a sua Logomarca agora.**\nClique no botão de **clipe de papel (📎)** abaixo para selecionar a imagem da sua logo (PNG ou JPG). Se não tiver o arquivo agora, clique em 'Continuar sem logo'.`;
+    quickReplies = ["📎 Já selecionei / Anexar Logo", "Continuar sem logo agora"];
+  }
+  // ETAPA 4B: Pergunta sobre anexo da logo se não respondeu
+  else if (updatedDraft.hasAskedLogo && !updatedDraft.backCustomizationType) {
+    if (lowerMsg.includes("nome da empresa") || lowerMsg.includes("empresa")) {
+      updatedDraft.backCustomizationType = "COMPANY_NAME";
+      reply = "Perfeito! **Qual é o nome da sua empresa** que você deseja estampar nas costas? (Digite o nome abaixo):";
+      quickReplies = ["GH Camiseteria", "Digitar outro nome", "Prefiro sem estampa nas costas"];
+    } else if (lowerMsg.includes("número") || lowerMsg.includes("numero") || lowerMsg.includes("individual")) {
+      updatedDraft.backCustomizationType = "INDIVIDUAL_NUMBER";
+      reply = "Show! Para personalização individual, qual **nome e número de exemplo** você quer testar nas costas? (Ex: SILVA 10)";
+      quickReplies = ["SILVA 10", "CAMISA 10", "Sem estampa nas costas"];
+    } else if (lowerMsg.includes("sem estampa") || lowerMsg.includes("lisa") || lowerMsg.includes("não")) {
+      updatedDraft.backCustomizationType = "NONE";
+      reply = "Entendido, costas lisas e sem estampas adicionais.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+      quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+    } else {
+      // Pergunta de costas
+      reply = "Logo registrada! 👍\n\nAgora sobre as costas da camisa: você deseja estampar algum **texto, nome da empresa ou número** nas costas?";
+      quickReplies = ["Sem estampa nas costas", "Nome da Empresa", "Nome Individual + Número"];
+    }
+  }
+  // ETAPA 5: Captura do Nome da Empresa nas Costas
+  else if (updatedDraft.backCustomizationType === "COMPANY_NAME" && !updatedDraft.customBackText) {
+    if (lowerMsg.includes("sem estampa") || lowerMsg.includes("prefiro sem")) {
+      updatedDraft.backCustomizationType = "NONE";
+    } else {
+      updatedDraft.customBackText = lastUserMsg.replace(/^["']|["']$/g, "");
+    }
+    reply = updatedDraft.customBackText
+      ? `Texto das costas registrado com sucesso: **"${updatedDraft.customBackText}"**! ✍️\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)`
+      : "Costas sem texto adicionais.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+    quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+  }
+  // ETAPA 5B: Captura do Número nas Costas
+  else if (updatedDraft.backCustomizationType === "INDIVIDUAL_NUMBER" && !updatedDraft.customBackText && !updatedDraft.customBackNumber) {
+    updatedDraft.customBackText = lastUserMsg;
+    reply = `Personalização dorsal registrada: **"${lastUserMsg}"**! 🔢\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)`;
+    quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+  }
+  // ETAPA 6: Quantidade
+  else if (!updatedDraft.quantity) {
     const foundNum = parseInt(lastUserMsg.replace(/\D/g, ""), 10);
     updatedDraft.quantity = isNaN(foundNum) || foundNum < 1 ? 20 : foundNum;
-    reply = `Registramos a estimativa de **${updatedDraft.quantity} peças**.\n\nConfira o resumo do seu uniforme:\n` +
-      `- **Modelo:** ${updatedDraft.modelName || "Camiseta"}\n` +
-      `- **Cor:** ${updatedDraft.primaryColor?.name}\n` +
-      `- **Bolso:** ${updatedDraft.hasPocket ? "Sim, bolso no peito" : "Não"}\n` +
-      `- **Gola:** ${updatedDraft.collarType}\n` +
-      `- **Logo:** ${updatedDraft.logoPlacement}\n\n` +
-      `Tudo certo para gerarmos as fotos de estúdio do seu uniforme por IA?`;
-    quickReplies = ["✅ Sim, gerar fotos de estúdio!", "Quero mudar a cor", "Quero mudar a gola"];
-  } else {
+
+    const pocketDesc = updatedDraft.hasPocket ? `Sim (Bolso ${updatedDraft.pocketColor || "na cor da peça"})` : "Não (Sem bolso)";
+    const logoDesc = updatedDraft.logoPlacement === "BOLSO" ? "No Bolso do Peito" : (updatedDraft.logoPlacement || "Peito Esquerdo");
+    const backDesc = updatedDraft.customBackText ? `Texto: "${updatedDraft.customBackText}"` : "Lisa sem estampas";
+
+    reply =
+      `Registramos a estimativa de **${updatedDraft.quantity} peças**.\n\n` +
+      `📋 **Confira o resumo completo do seu uniforme:**\n` +
+      `- **Modelo:** ${updatedDraft.modelName || "Camisa Polo Corporativa"}\n` +
+      `- **Tecido:** ${updatedDraft.fabric || "Piquet Premium"}\n` +
+      `- **Cor Principal:** ${updatedDraft.primaryColor?.name || "Preto"}\n` +
+      `- **Bolso no Peito:** ${pocketDesc}\n` +
+      `- **Gola:** ${updatedDraft.collarType || "Polo Tradicional"}\n` +
+      `- **Aplicação da Logo:** ${logoDesc}\n` +
+      `- **Costas:** ${backDesc}\n` +
+      `- **Quantidade:** ${updatedDraft.quantity} unidades\n\n` +
+      `Tudo certo para gerarmos as fotos fotorrealistas de estúdio do seu uniforme por IA?`;
+    quickReplies = ["✅ Sim, gerar fotos de estúdio!", "Quero mudar a cor", "Quero mudar o bolso"];
+  }
+  // ETAPA 7: Conclusão e Geração do Prompt Fotorrealista
+  else {
     isCompleted = true;
     reply = "🎉 **Projeto de Uniforme Concluído com Sucesso!**\n\nNossa inteligência artificial de estúdio gerou as imagens do seu uniforme com base em todas as especificações escolhidas:";
-    const color = updatedDraft.primaryColor?.name || "Navy Blue";
-    const pocket = updatedDraft.hasPocket ? ", tailored chest pocket" : "";
+
+    const colorInfo = translateColorToEnglish(updatedDraft.primaryColor?.name);
+    const modelEnglish = updatedDraft.modelType === "POLO" ? "classic polo shirt with collar and buttons" : "crewneck short-sleeve t-shirt";
+    const pocketEnglish = updatedDraft.hasPocket ? ", tailored chest pocket on front left chest" : "";
+
+    const studioStyle =
+      "commercial apparel product photography, clean solid white background, high-end clothing catalog, invisible ghost mannequin presentation, professional softbox studio lighting, crisp textile fabric texture, 8k resolution, centered composition, strictly NO human, NO woman, NO man, NO model, NO face, NO body, clothing product only";
+
     imagePrompts = {
-      frontPrompt: `Commercial apparel studio photography, front view of a ${color} ${updatedDraft.modelName || "t-shirt"}${pocket}, ghost mannequin, clean white background, softbox lighting, 8k resolution, crisp textile texture`,
-      backPrompt: `Commercial apparel studio photography, back view of a ${color} ${updatedDraft.modelName || "t-shirt"}, ghost mannequin, clean white background, softbox lighting, 8k resolution`,
-      sleevePrompt: `Commercial apparel studio photography, closeup side angle of a ${color} ${updatedDraft.modelName || "t-shirt"} sleeve, ghost mannequin, clean white background, 8k resolution`,
+      frontPrompt: `Front view of a completely ${colorInfo.nameEn} (${colorInfo.hex}) ${modelEnglish}${pocketEnglish}, ${colorInfo.nameEn} fabric, ${colorInfo.nameEn} collar, ${colorInfo.nameEn} sleeves, ${studioStyle}`,
+      backPrompt: `Back view of a completely ${colorInfo.nameEn} (${colorInfo.hex}) ${modelEnglish}, ${colorInfo.nameEn} fabric, clean back presentation, ${studioStyle}`,
+      sleevePrompt: `Side profile 45-degree angle closeup view of the sleeve of a ${colorInfo.nameEn} (${colorInfo.hex}) ${modelEnglish}, tailored cuff, ${studioStyle}`,
     };
   }
 
