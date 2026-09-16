@@ -13,13 +13,13 @@ import {
   CheckCircle2,
   Share2,
   Shirt,
-  Loader2,
   ChevronRight,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PhotorealisticMockup } from "@/components/configurator/photorealistic-mockup";
 import type { UniformDraftState } from "@/app/api/ai/chat/route";
 
 interface ChatMessage {
@@ -32,12 +32,6 @@ interface ChatMessage {
   isLogoPrompt?: boolean;
 }
 
-interface GeneratedImages {
-  front: string;
-  back: string;
-  sleeve: string;
-}
-
 export function UniformAiChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -46,10 +40,8 @@ export function UniformAiChat() {
   const [attachedLogo, setAttachedLogo] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState<string | null>(null);
 
-  // Estados de Conclusão e Fotos da IA
+  // Estados de Conclusão e Visualização do Estúdio Fotorrealista
   const [isCompleted, setIsCompleted] = useState(false);
-  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImages | null>(null);
   const [activeImageView, setActiveImageView] = useState<"front" | "back" | "sleeve">("front");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,10 +139,9 @@ export function UniformAiChat() {
 
       setMessages((prev) => [...prev, botMessage]);
 
-      // Se a triagem foi concluída, dispara a geração das fotos de estúdio por IA
+      // Se a triagem foi concluída, ativa o estúdio de fotos fotorrealistas
       if (data.isCompleted) {
         setIsCompleted(true);
-        triggerImageGeneration(data.imagePrompts, updatedDraft);
       }
     } catch (err: unknown) {
       console.error("Erro no chat:", err);
@@ -170,32 +161,6 @@ export function UniformAiChat() {
     }
   };
 
-  // Gerador de imagens fotorrealistas de estúdio
-  const triggerImageGeneration = async (
-    prompts: { frontPrompt?: string; backPrompt?: string; sleevePrompt?: string } | null,
-    currentDraft: UniformDraftState
-  ) => {
-    setIsGeneratingImages(true);
-    try {
-      const res = await fetch("/api/ai/generate-mockup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompts,
-          draft: currentDraft,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success && data.images) {
-        setGeneratedImages(data.images);
-      }
-    } catch (imgErr) {
-      console.error("Erro ao gerar imagens por IA:", imgErr);
-    } finally {
-      setIsGeneratingImages(false);
-    }
-  };
 
   // Upload da Logo
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,7 +205,6 @@ export function UniformAiChat() {
     ]);
     setDraft({});
     setIsCompleted(false);
-    setGeneratedImages(null);
     setAttachedLogo(null);
     setLogoFileName(null);
   };
@@ -551,139 +515,53 @@ export function UniformAiChat() {
             )}
           </div>
 
-          <CardContent className="p-4 space-y-4">
-            {/* Visualizador de Imagens com Logo e Textos Sobrepostos */}
-            <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center">
-              {isGeneratingImages ? (
-                <div className="flex flex-col items-center justify-center p-6 text-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
-                  <p className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
-                    Gerando fotos fotorrealistas de estúdio...
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                    A IA está renderizando o tecido, cor e bolso em manequim de catálogo.
-                  </p>
-                </div>
-              ) : generatedImages ? (
-                <div className="relative w-full h-full">
-                  {/* Imagem de Fundo Gerada pela IA */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={generatedImages[activeImageView]}
-                    alt="Mockup do Uniforme por IA"
-                    className="h-full w-full object-cover"
-                  />
-
-                  {/* Sobreposição da Logo Real do Cliente na Frente */}
-                  {activeImageView === "front" && draft.logoUrl && (
-                    <div
-                      className={`absolute transition-all duration-300 pointer-events-none flex items-center justify-center ${
-                        draft.logoPlacement === "BOLSO"
-                          ? "top-[38%] left-[60%] w-[13%] h-[13%]"
-                          : draft.logoPlacement === "PEITO_DIREITO"
-                          ? "top-[33%] left-[34%] w-[14%] h-[14%]"
-                          : draft.logoPlacement === "CENTRO_FRONTAL"
-                          ? "top-[37%] left-1/2 -translate-x-1/2 w-[22%] h-[22%]"
-                          : "top-[33%] left-[60%] w-[14%] h-[14%]"
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={draft.logoUrl}
-                        alt="Logomarca Aplicada"
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
-                      />
-                    </div>
-                  )}
-
-                  {/* Sobreposição da Logo Real na Manga */}
-                  {activeImageView === "sleeve" && draft.logoUrl && draft.logoPlacement === "MANGA" && (
-                    <div className="absolute top-[42%] left-1/2 -translate-x-1/2 w-[20%] h-[20%] flex items-center justify-center pointer-events-none">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={draft.logoUrl}
-                        alt="Logomarca na Manga"
-                        className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
-                      />
-                    </div>
-                  )}
-
-                  {/* Sobreposição da Logo e Texto nas Costas */}
-                  {activeImageView === "back" && (
-                    <>
-                      {draft.logoUrl && draft.logoPlacement === "COSTAS" && (
-                        <div className="absolute top-[26%] left-1/2 -translate-x-1/2 w-[24%] h-[24%] flex items-center justify-center pointer-events-none">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={draft.logoUrl}
-                            alt="Logomarca nas Costas"
-                            className="max-h-full max-w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
-                          />
-                        </div>
-                      )}
-                      {draft.customBackText && (
-                        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[75%]">
-                          <span className="font-extrabold uppercase tracking-widest text-white/95 text-xs sm:text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] bg-black/25 px-3 py-1 rounded backdrop-blur-[1px]">
-                            {draft.customBackText}
-                          </span>
-                        </div>
-                      )}
-                      {draft.customBackNumber && (
-                        <div className="absolute top-[42%] left-1/2 -translate-x-1/2 text-center pointer-events-none">
-                          <span className="font-black text-3xl sm:text-4xl text-white/95 drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)]">
-                            {draft.customBackNumber}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-center gap-2 text-slate-400 dark:text-zinc-500">
-                  <Shirt className="h-12 w-12 stroke-[1.2] opacity-50" />
-                  <p className="text-xs font-medium">
-                    As fotos fotorrealistas aparecerão aqui assim que concluirmos o chat com o consultor.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Seletor de Ângulos (Frente, Costas, Manga/Detalhe) */}
-            {generatedImages && (
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveImageView("front")}
-                  className={`py-2 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                    activeImageView === "front"
-                      ? "bg-[#d4af37] text-zinc-950 border-[#d4af37] shadow-xs"
-                      : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300"
-                  }`}
-                >
-                  👕 Frente
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveImageView("back")}
-                  className={`py-2 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                    activeImageView === "back"
-                      ? "bg-[#d4af37] text-zinc-950 border-[#d4af37] shadow-xs"
-                      : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300"
-                  }`}
-                >
-                  🔄 Costas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveImageView("sleeve")}
-                  className={`py-2 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                    activeImageView === "sleeve"
-                      ? "bg-[#d4af37] text-zinc-950 border-[#d4af37] shadow-xs"
-                      : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300"
-                  }`}
-                >
-                  📐 Detalhe
-                </button>
+          <CardContent className="p-2 sm:p-4">
+            {isCompleted ? (
+              <div className="w-full">
+                <PhotorealisticMockup
+                  modelType={
+                    draft.modelType === "POLO"
+                      ? "POLO"
+                      : draft.modelType === "MANGA_LONGA"
+                      ? "MANGA_LONGA"
+                      : "TRADITIONAL"
+                  }
+                  color={draft.primaryColor || { name: "Preto", hex: "#111827" }}
+                  logoUrl={draft.logoUrl || null}
+                  logoPosition={
+                    draft.logoPlacement && draft.logoPlacement !== "NENHUM"
+                      ? draft.logoPlacement
+                      : "BOLSO"
+                  }
+                  customText={draft.customBackText}
+                  customTextPosition="BACK"
+                  customNumber={draft.customBackNumber}
+                  customNumberPosition="BACK"
+                  hasPocket={Boolean(draft.hasPocket)}
+                  pocketColor={
+                    draft.pocketColor?.toLowerCase().includes("branco")
+                      ? "#FFFFFF"
+                      : draft.pocketColor?.toLowerCase().includes("preto")
+                      ? "#111827"
+                      : draft.pocketColor?.startsWith("#")
+                      ? draft.pocketColor
+                      : null
+                  }
+                  viewSide={activeImageView === "front" ? "FRONT" : activeImageView === "back" ? "BACK" : "SLEEVE"}
+                  onViewSideChange={(side) =>
+                    setActiveImageView(side === "FRONT" ? "front" : side === "BACK" ? "back" : "sleeve")
+                  }
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 text-center gap-3 text-slate-400 dark:text-zinc-500 aspect-square rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                <Shirt className="h-12 w-12 stroke-[1.2] opacity-40 text-[#d4af37]" />
+                <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Estúdio Fotográfico por IA
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 max-w-xs">
+                  As fotos de estúdio fotorrealistas (frente, costas e manga) com sua logomarca e cor exata aparecerão aqui assim que concluirmos o chat.
+                </p>
               </div>
             )}
           </CardContent>
