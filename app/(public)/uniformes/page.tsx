@@ -1,4 +1,5 @@
-import { Shirt, Filter, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Shirt, Filter, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function UniformesPage() {
@@ -21,16 +22,24 @@ export default function UniformesPage() {
             Conheça os modelos base disponíveis para confecção sob medida e personalização da sua marca.
           </p>
         </div>
-        <a
-          href={`https://api.whatsapp.com/send?phone=${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999"}&text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento de uniformes.")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-            Solicitar Orçamento
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </a>
+        <div className="flex items-center gap-3">
+          <Link href="/monte-seu-uniforme">
+            <Button className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
+              <Sparkles className="h-4 w-4" />
+              Monte seu Uniforme com IA
+            </Button>
+          </Link>
+          <a
+            href={`https://api.whatsapp.com/send?phone=${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999"}&text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento de uniformes.")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" className="gap-2 border-slate-300 dark:border-zinc-800">
+              WhatsApp
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </a>
+        </div>
       </div>
 
       {/* Category Pills */}
@@ -59,13 +68,19 @@ export default function UniformesPage() {
         <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
           Consulte nossa equipe para confecção sob medida com tecidos premium, bordados e estampas de alta durabilidade.
         </p>
-        <div className="mt-6 flex justify-center gap-3">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/monte-seu-uniforme">
+            <Button size="sm" className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md gap-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              Monte seu Uniforme com IA
+            </Button>
+          </Link>
           <a
             href={`https://api.whatsapp.com/send?phone=${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5511999999999"}&text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento para uniformes.")}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Button size="sm" className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
+            <Button variant="outline" size="sm" className="border-slate-300 dark:border-zinc-700">
               Falar com Consultor
             </Button>
           </a>

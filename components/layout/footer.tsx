@@ -45,6 +45,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/monte-seu-uniforme" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
+                  Monte seu Uniforme
+                </Link>
+              </li>
+              <li>
                 <Link href="/meus-pedidos" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
                   Acompanhar Pedido
                 </Link>

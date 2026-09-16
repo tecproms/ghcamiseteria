@@ -21,10 +21,15 @@ export default function HomePage() {
               Desenvolva uniformes corporativos, industriais, esportivos e promocionais com tecidos de alta durabilidade, modelagem precisa e personalização de ponta.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/uniformes">
+              <Link href="/monte-seu-uniforme">
                 <Button size="lg" className="gap-2 bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-                  Ver Catálogo de Modelos
+                  Monte seu Uniforme com IA
                   <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/uniformes">
+                <Button variant="outline" size="lg" className="border-slate-300 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">
+                  Ver Catálogo de Modelos
                 </Button>
               </Link>
             </div>
@@ -84,10 +89,15 @@ export default function HomePage() {
           <p className="mt-3 text-base text-slate-600 dark:text-zinc-400 max-w-2xl mx-auto">
             Acompanhe orçamentos rápidos e pedidos diretamente pela nossa plataforma online.
           </p>
-          <div className="mt-8 flex justify-center gap-4">
-            <Link href="/uniformes">
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link href="/monte-seu-uniforme">
               <Button size="lg" className="bg-[#d4af37] hover:bg-[#c49f27] text-zinc-950 font-bold border-none shadow-md">
-                Ver Catálogo de Uniformes
+                Monte seu Uniforme com IA
+              </Button>
+            </Link>
+            <Link href="/uniformes">
+              <Button variant="outline" size="lg" className="border-slate-300 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">
+                Ver Catálogo
               </Button>
             </Link>
           </div>
