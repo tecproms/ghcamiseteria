@@ -255,11 +255,18 @@ export function UniformAiChat() {
       ? `${draft.logoPlacement === "BOLSO" ? "No Bolso do Peito" : draft.logoPlacement} ${draft.logoUrl ? "(Arquivo anexado)" : ""}`
       : "A combinar";
 
-    const backInfo = draft.customBackText
-      ? `"${draft.customBackText}"`
-      : draft.customBackNumber
-      ? `Número: ${draft.customBackNumber}`
-      : "Lisa sem estampa";
+    const backParts: string[] = [];
+    if (draft.backLogoUrl || draft.backCustomizationType === "LOGO_BACK") {
+      backParts.push("Logomarca");
+    }
+    if (draft.customBackText) {
+      backParts.push(`Texto: "${draft.customBackText}"`);
+    }
+    if (draft.customBackNumber) {
+      backParts.push(`Número: ${draft.customBackNumber}`);
+    }
+    const backInfo = backParts.length > 0 ? backParts.join(" + ") : "Lisa sem estampa";
+    const sleeveInfo = draft.sleeveCustomization || "Sem estampa nas mangas";
 
     const message =
       `Olá, equipe da *GH Camiseteria*! 👋\n\n` +
@@ -272,6 +279,7 @@ export function UniformAiChat() {
       `👔 *Tipo de Gola:* ${draft.collarType || "Polo Tradicional"}\n` +
       `📍 *Aplicação de Logo:* ${logoInfo}\n` +
       `🔙 *Estampa nas Costas:* ${backInfo}\n` +
+      `📐 *Mangas:* ${sleeveInfo}\n` +
       `📦 *Quantidade Estimada:* ${qty} unidades\n` +
       `💰 *Estimativa de Investimento:* R$ ${unitPrice.toFixed(2)}/un. (Total: R$ ${totalPrice.toFixed(2)})\n\n` +
       `Gostaria de formalizar o pedido e enviar o arquivo vetorizado da arte. Como procedemos?`;
@@ -562,6 +570,10 @@ export function UniformAiChat() {
                   color={draft.primaryColor || { name: "Preto", hex: "#111827" }}
                   logoUrl={draft.logoUrl || null}
                   backLogoUrl={draft.backLogoUrl || (draft.backCustomizationType === "LOGO_BACK" ? draft.logoUrl : null)}
+                  logoScale={draft.logoScale ?? 1.0}
+                  onLogoScaleChange={(scale) =>
+                    setDraft((prev) => ({ ...prev, logoScale: scale }))
+                  }
                   customBackOffsetY={draft.customBackOffsetY || 0}
                   onCustomBackOffsetYChange={(offset) =>
                     setDraft((prev) => ({ ...prev, customBackOffsetY: offset }))
@@ -680,9 +692,20 @@ export function UniformAiChat() {
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
                   <span className="text-slate-500 dark:text-zinc-400">Estampa Costas:</span>
                   <span className="font-bold text-slate-900 dark:text-white">
-                    {draft.backCustomizationType === "LOGO_BACK" || draft.backLogoUrl
-                      ? "Logomarca / Imagem"
-                      : draft.customBackText}
+                    {[
+                      draft.backCustomizationType === "LOGO_BACK" || draft.backLogoUrl ? "Logomarca" : null,
+                      draft.customBackText ? `Texto ("${draft.customBackText}")` : null,
+                      draft.customBackNumber ? `Número ${draft.customBackNumber}` : null,
+                    ].filter(Boolean).join(" + ") || "Sem estampa"}
+                  </span>
+                </div>
+              )}
+
+              {draft.sleeveCustomization && (
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
+                  <span className="text-slate-500 dark:text-zinc-400">Mangas:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {draft.sleeveCustomization}
                   </span>
                 </div>
               )}

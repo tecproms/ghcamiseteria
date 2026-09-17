@@ -322,8 +322,12 @@ export function PhotorealisticMockup({
       colorCtx.imageSmoothingEnabled = true;
       colorCtx.imageSmoothingQuality = "high";
 
+      const rgb = hexToRgb(color.hex);
+      const isBlack = (rgb.r < 30 && rgb.g < 30 && rgb.b < 30) || color.name.toLowerCase().includes("preto");
+      const fillColor = isBlack ? "#0a0a0c" : color.hex;
+
       // Preenche com a cor escolhida
-      colorCtx.fillStyle = color.hex;
+      colorCtx.fillStyle = fillColor;
       colorCtx.fillRect(0, 0, size, size);
 
       // Corta para manter apenas a forma da camiseta (usando o alpha da máscara)
@@ -346,12 +350,12 @@ export function PhotorealisticMockup({
       ctx.globalCompositeOperation = "multiply";
       ctx.drawImage(maskCanvas, 0, 0);
 
-      // 4. Preservação de brilhos, botões e relevo do tecido em cores escuras (Azul Marinho, Preto, Chumbo)
-      const rgb = hexToRgb(color.hex);
+      // 4. Preservação de brilhos, botões e relevo do tecido em cores escuras (Azul Marinho, Chumbo)
+      // Para preto, o multiply já preserva o sombreamento de dobras com preto puro e autêntico
       const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
-      if (brightness < 140) {
+      if (!isBlack && brightness < 140) {
         ctx.globalCompositeOperation = "screen";
-        ctx.globalAlpha = 0.22;
+        ctx.globalAlpha = 0.08;
         ctx.drawImage(maskCanvas, 0, 0);
         ctx.globalAlpha = 1.0;
       }
@@ -386,6 +390,9 @@ export function PhotorealisticMockup({
         const isDark = hexToRgb(color.hex).r < 120;
         const textColor = isDark ? "#FFFFFF" : "#1E293B";
 
+        const hasBackLogo = Boolean(activeLogoUrl && currentView === "BACK");
+        const hasBackText = Boolean(customText && customText.trim() && customTextPosition === "BACK");
+
         // Renderizar Texto se a posição coincidir com a visão atual
         if (customText && customText.trim() && customTextPosition === currentView) {
           ctx.save();
@@ -393,7 +400,7 @@ export function PhotorealisticMockup({
           ctx.imageSmoothingQuality = "high";
           ctx.font =
             currentView === "BACK"
-              ? "900 44px 'Inter', sans-serif"
+              ? "900 42px 'Inter', sans-serif"
               : "bold 30px 'Inter', sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -403,7 +410,13 @@ export function PhotorealisticMockup({
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 2;
           ctx.globalAlpha = 0.98;
-          const textY = currentView === "BACK" ? size * (0.28 + currentBackOffsetY) : size * 0.44;
+          // Se tiver logo nas costas E texto nas costas, coloca o texto no topo (escapular / omoplata)
+          const textY =
+            currentView === "BACK"
+              ? hasBackLogo
+                ? size * (0.22 + currentBackOffsetY)
+                : size * (0.32 + currentBackOffsetY)
+              : size * 0.44;
           ctx.fillText(customText.toUpperCase(), size * 0.5, textY);
           ctx.restore();
         }
@@ -422,7 +435,12 @@ export function PhotorealisticMockup({
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 3;
           ctx.globalAlpha = 0.98;
-          const numY = customText && customTextPosition === currentView ? size * (0.52 + currentBackOffsetY) : size * (0.46 + currentBackOffsetY);
+          const numY =
+            currentView === "BACK"
+              ? hasBackLogo || hasBackText
+                ? size * (0.64 + currentBackOffsetY)
+                : size * (0.46 + currentBackOffsetY)
+              : size * 0.52;
           ctx.fillText(customNumber, size * 0.5, numY);
           ctx.restore();
         }
@@ -492,8 +510,11 @@ export function PhotorealisticMockup({
 
           if (currentView === "BACK") {
             centerX = size * 0.5 + (logoOffsetX * size);
-            centerY = size * (0.35 + currentBackOffsetY) + (logoOffsetY * size);
-            maxW = size * 0.32 * currentScale;
+            const hasBackText = Boolean(customText && customText.trim() && customTextPosition === "BACK");
+            centerY = hasBackText
+              ? size * (0.42 + currentBackOffsetY) + (logoOffsetY * size)
+              : size * (0.36 + currentBackOffsetY) + (logoOffsetY * size);
+            maxW = size * (hasBackText ? 0.28 : 0.32) * currentScale;
           } else if (logoPosition === "BOLSO" && hasPocket && currentView === "FRONT") {
             // Logo dentro do bolso: posiciona no centro do bolso com offsets do bolso e da logo
             const basePX = size * (modelType === "POLO" ? 0.60 : 0.58);
@@ -697,10 +718,35 @@ export function PhotorealisticMockup({
           </div>
         )}
 
-        {/* Controles da Visão Costas: Subir e Descer Texto ou Logo */}
+        {/* Controles da Visão Costas: Subir e Descer Texto ou Logo + Escala da Logo */}
         {!loading && currentView === "BACK" && (Boolean(customText) || Boolean(backLogoUrl) || logoPosition === "COSTAS") && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
-            <span className="font-semibold text-slate-700 dark:text-zinc-300">Posição Costas:</span>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
+            {(Boolean(backLogoUrl) || logoPosition === "COSTAS") && (
+              <>
+                <span className="font-semibold text-slate-700 dark:text-zinc-300">Tamanho:</span>
+                <button
+                  type="button"
+                  onClick={() => handleScaleChange(currentScale - 0.15)}
+                  className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200 cursor-pointer"
+                  title="Diminuir logo"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold min-w-8 text-center text-slate-800 dark:text-zinc-200">
+                  {Math.round(currentScale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleScaleChange(currentScale + 0.15)}
+                  className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center justify-center transition-colors text-slate-800 dark:text-zinc-200 cursor-pointer"
+                  title="Aumentar logo"
+                >
+                  +
+                </button>
+                <div className="w-px h-4 bg-slate-300 dark:bg-zinc-600 mx-0.5" />
+              </>
+            )}
+            <span className="font-semibold text-slate-700 dark:text-zinc-300">Posição:</span>
             <button
               type="button"
               onClick={() => handleBackOffsetYChange(currentBackOffsetY - 0.03)}
