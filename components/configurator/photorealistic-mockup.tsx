@@ -31,6 +31,9 @@ interface PhotorealisticMockupProps {
   logoOffsetX?: number;
   logoOffsetY?: number;
   onLogoOffsetChange?: (x: number, y: number) => void;
+  backLogoUrl?: string | null;
+  customBackOffsetY?: number;
+  onCustomBackOffsetYChange?: (offset: number) => void;
   onImageRendered?: (dataUrl: string) => void;
 }
 
@@ -143,6 +146,9 @@ export function PhotorealisticMockup({
   logoOffsetX = 0,
   logoOffsetY = 0,
   onLogoOffsetChange,
+  backLogoUrl = null,
+  customBackOffsetY = 0,
+  onCustomBackOffsetYChange,
   onImageRendered,
 }: PhotorealisticMockupProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,9 +157,11 @@ export function PhotorealisticMockup({
 
   const [internalViewSide, setInternalViewSide] = useState<MockupViewSide>("FRONT");
   const [internalLogoScale, setInternalLogoScale] = useState<number>(1.0);
+  const [internalBackOffsetY, setInternalBackOffsetY] = useState<number>(0);
 
   const currentView = viewSide ?? internalViewSide;
   const currentScale = logoScale ?? internalLogoScale;
+  const currentBackOffsetY = customBackOffsetY !== undefined && customBackOffsetY !== 0 ? customBackOffsetY : internalBackOffsetY;
 
   const handleSetView = (side: MockupViewSide) => {
     setInternalViewSide(side);
@@ -164,6 +172,12 @@ export function PhotorealisticMockup({
     const clamped = Math.max(0.4, Math.min(2.5, Math.round(scale * 100) / 100));
     setInternalLogoScale(clamped);
     onLogoScaleChange?.(clamped);
+  };
+
+  const handleBackOffsetYChange = (offset: number) => {
+    const clamped = Math.max(-0.25, Math.min(0.40, Math.round(offset * 100) / 100));
+    setInternalBackOffsetY(clamped);
+    onCustomBackOffsetYChange?.(clamped);
   };
 
   useEffect(() => {
@@ -185,7 +199,7 @@ export function PhotorealisticMockup({
     baseImg.onload = () => {
       if (isCancelled) return;
 
-      const size = 1000;
+      const size = 1024;
       canvas.width = size;
       canvas.height = size;
 
@@ -294,8 +308,10 @@ export function PhotorealisticMockup({
         maskCache[imgPath] = cached;
       }
 
-      // 1. Limpar canvas
+      // 1. Limpar canvas com suavização de alta fidelidade
       ctx.clearRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
       // 2. Criar camada de silhueta colorida
       const colorCanvas = document.createElement("canvas");
@@ -303,6 +319,8 @@ export function PhotorealisticMockup({
       colorCanvas.height = size;
       const colorCtx = colorCanvas.getContext("2d");
       if (!colorCtx) return;
+      colorCtx.imageSmoothingEnabled = true;
+      colorCtx.imageSmoothingQuality = "high";
 
       // Preenche com a cor escolhida
       colorCtx.fillStyle = color.hex;
@@ -314,6 +332,8 @@ export function PhotorealisticMockup({
       maskCanvas.height = size;
       const maskCtx = maskCanvas.getContext("2d");
       if (!maskCtx) return;
+      maskCtx.imageSmoothingEnabled = true;
+      maskCtx.imageSmoothingQuality = "high";
       maskCtx.putImageData(cached.alphaMask, 0, 0);
 
       colorCtx.globalCompositeOperation = "destination-in";
@@ -326,6 +346,16 @@ export function PhotorealisticMockup({
       ctx.globalCompositeOperation = "multiply";
       ctx.drawImage(maskCanvas, 0, 0);
 
+      // 4. Preservação de brilhos, botões e relevo do tecido em cores escuras (Azul Marinho, Preto, Chumbo)
+      const rgb = hexToRgb(color.hex);
+      const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+      if (brightness < 140) {
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.22;
+        ctx.drawImage(maskCanvas, 0, 0);
+        ctx.globalAlpha = 1.0;
+      }
+
       // Restaura para source-over normal
       ctx.globalCompositeOperation = "source-over";
 
@@ -334,7 +364,7 @@ export function PhotorealisticMockup({
 
     function applyOverlays() {
       if (!ctx) return;
-      const size = 1000;
+      const size = 1024;
       const viewCoords = LOGO_COORDINATES[currentView] || LOGO_COORDINATES.FRONT;
       const modelCoords = viewCoords[modelType] || viewCoords.TRADITIONAL;
       const coords = modelCoords[logoPosition as LogoPositionType] || modelCoords.PEITO_ESQUERDO;
@@ -342,9 +372,12 @@ export function PhotorealisticMockup({
       const isSleeveView = currentView === "SLEEVE" || currentView === "SLEEVE_LEFT" || currentView === "SLEEVE_RIGHT";
       const isRightSleeve = currentView === "SLEEVE_RIGHT";
 
+      const activeLogoUrl =
+        currentView === "BACK" ? (backLogoUrl || (logoPosition === "COSTAS" ? logoUrl : null)) : logoUrl;
+
       const shouldShowLogo =
-        !!logoUrl &&
-        ((currentView === "BACK" && logoPosition === "COSTAS") ||
+        Boolean(activeLogoUrl) &&
+        ((currentView === "BACK") ||
           (isSleeveView && logoPosition === "MANGA") ||
           (currentView === "FRONT" && logoPosition !== "COSTAS" && logoPosition !== "MANGA"));
 
@@ -356,15 +389,21 @@ export function PhotorealisticMockup({
         // Renderizar Texto se a posição coincidir com a visão atual
         if (customText && customText.trim() && customTextPosition === currentView) {
           ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
           ctx.font =
             currentView === "BACK"
-              ? "900 42px 'Inter', sans-serif"
+              ? "900 44px 'Inter', sans-serif"
               : "bold 30px 'Inter', sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = textColor;
-          ctx.globalAlpha = 0.95;
-          const textY = currentView === "BACK" ? size * 0.28 : size * 0.44;
+          ctx.shadowColor = isDark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)";
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 2;
+          ctx.globalAlpha = 0.98;
+          const textY = currentView === "BACK" ? size * (0.28 + currentBackOffsetY) : size * 0.44;
           ctx.fillText(customText.toUpperCase(), size * 0.5, textY);
           ctx.restore();
         }
@@ -372,12 +411,18 @@ export function PhotorealisticMockup({
         // Renderizar Número se a posição coincidir com a visão atual
         if (customNumber && customNumber.trim() && customNumberPosition === currentView) {
           ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
           ctx.font = "900 120px 'Inter', sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = textColor;
-          ctx.globalAlpha = 0.95;
-          const numY = customText && customTextPosition === currentView ? size * 0.54 : size * 0.48;
+          ctx.shadowColor = isDark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)";
+          ctx.shadowBlur = 5;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 3;
+          ctx.globalAlpha = 0.98;
+          const numY = customText && customTextPosition === currentView ? size * (0.52 + currentBackOffsetY) : size * (0.46 + currentBackOffsetY);
           ctx.fillText(customNumber, size * 0.5, numY);
           ctx.restore();
         }
@@ -434,10 +479,10 @@ export function PhotorealisticMockup({
 
       drawPocket();
 
-      if (shouldShowLogo && logoUrl) {
+      if (shouldShowLogo && activeLogoUrl) {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
-        logoImg.src = logoUrl;
+        logoImg.src = activeLogoUrl;
         logoImg.onload = () => {
           if (isCancelled || !ctx) return;
 
@@ -445,13 +490,17 @@ export function PhotorealisticMockup({
           let centerY: number;
           let maxW: number;
 
-          if (logoPosition === "BOLSO" && hasPocket && currentView === "FRONT") {
+          if (currentView === "BACK") {
+            centerX = size * 0.5 + (logoOffsetX * size);
+            centerY = size * (0.35 + currentBackOffsetY) + (logoOffsetY * size);
+            maxW = size * 0.32 * currentScale;
+          } else if (logoPosition === "BOLSO" && hasPocket && currentView === "FRONT") {
             // Logo dentro do bolso: posiciona no centro do bolso com offsets do bolso e da logo
             const basePX = size * (modelType === "POLO" ? 0.60 : 0.58);
             const basePY = size * (modelType === "POLO" ? 0.38 : 0.35);
             centerX = basePX + (pocketOffsetX * size) + (logoOffsetX * size);
-            centerY = basePY + (pocketOffsetY * size) + 10 + (logoOffsetY * size); // +10 para baixo da costura
-            maxW = 80 * currentScale; // Cabe dentro do bolso (108px de largura)
+            centerY = basePY + (pocketOffsetY * size) + 12 + (logoOffsetY * size); // centro da área útil do bolso
+            maxW = 105 * currentScale;
           } else {
             maxW = size * coords.maxWidthPct * currentScale;
             const rawXPct = coords.xPct;
@@ -465,8 +514,13 @@ export function PhotorealisticMockup({
           const h = maxW / aspect;
 
           ctx.save();
-          // Efeito de estamparia real (leve mesclagem com tecido)
-          ctx.globalAlpha = 0.96;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 1;
+          ctx.globalAlpha = 0.98;
           ctx.drawImage(logoImg, centerX - w / 2, centerY - h / 2, w, h);
           ctx.restore();
 
@@ -505,7 +559,10 @@ export function PhotorealisticMockup({
     currentScale,
     color,
     logoUrl,
+    backLogoUrl,
     logoPosition,
+    customBackOffsetY,
+    currentBackOffsetY,
     customText,
     customTextPosition,
     customNumber,
@@ -581,8 +638,8 @@ export function PhotorealisticMockup({
           </Button>
         )}
 
-        {/* Controle de Escala e Posição da Logo */}
-        {logoUrl && !loading && (
+        {/* Controle de Escala e Posição da Logo na Frente ou Manga */}
+        {logoUrl && !loading && currentView !== "BACK" && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
             <span className="font-semibold text-slate-700 dark:text-zinc-300">Logo:</span>
             <button
@@ -636,6 +693,29 @@ export function PhotorealisticMockup({
               title="Mover logo para direita"
             >
               ▶
+            </button>
+          </div>
+        )}
+
+        {/* Controles da Visão Costas: Subir e Descer Texto ou Logo */}
+        {!loading && currentView === "BACK" && (Boolean(customText) || Boolean(backLogoUrl) || logoPosition === "COSTAS") && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 shadow-xl text-xs">
+            <span className="font-semibold text-slate-700 dark:text-zinc-300">Posição Costas:</span>
+            <button
+              type="button"
+              onClick={() => handleBackOffsetYChange(currentBackOffsetY - 0.03)}
+              className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center gap-1 transition-colors text-slate-800 dark:text-zinc-200 cursor-pointer shadow-xs"
+              title="Mover estampa para cima"
+            >
+              ▲ Subir
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBackOffsetYChange(currentBackOffsetY + 0.03)}
+              className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 font-bold flex items-center gap-1 transition-colors text-slate-800 dark:text-zinc-200 cursor-pointer shadow-xs"
+              title="Mover estampa para baixo"
+            >
+              ▼ Descer
             </button>
           </div>
         )}

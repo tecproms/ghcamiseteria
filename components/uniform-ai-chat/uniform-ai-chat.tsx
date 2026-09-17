@@ -45,6 +45,7 @@ export function UniformAiChat() {
   const [activeImageView, setActiveImageView] = useState<"front" | "back" | "sleeve">("front");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
@@ -74,18 +75,18 @@ export function UniformAiChat() {
   }, []);
 
   // Enviar mensagem do usuário
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, directLogo?: string | null, isBackLogo?: boolean) => {
     const text = (textToSend || inputValue).trim();
-    const currentLogo = attachedLogo || draft.logoUrl || null;
+    const currentLogo = directLogo || attachedLogo || (isBackLogo ? draft.backLogoUrl : draft.logoUrl) || null;
 
     if (!text && !currentLogo) return;
 
     const userMessage: ChatMessage = {
       id: `usr-${Date.now()}`,
       role: "user",
-      content: text || "Logomarca anexada para o uniforme.",
+      content: text || (isBackLogo ? "Imagem para as costas anexada." : "Logomarca anexada para o uniforme."),
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      logoAttachment: attachedLogo || undefined,
+      logoAttachment: (directLogo || attachedLogo) || undefined,
     };
 
     const newHistory = [...messages, userMessage];
@@ -97,7 +98,9 @@ export function UniformAiChat() {
 
     const draftToSend: UniformDraftState = {
       ...draft,
-      logoUrl: currentLogo,
+      ...(isBackLogo
+        ? { backLogoUrl: currentLogo, backCustomizationType: "LOGO_BACK" }
+        : { logoUrl: currentLogo || draft.logoUrl }),
     };
 
     try {
@@ -119,13 +122,16 @@ export function UniformAiChat() {
       const updatedDraft: UniformDraftState = {
         ...draftToSend,
         ...(data.draft || {}),
-        logoUrl: currentLogo || data.draft?.logoUrl || null,
+        logoUrl: isBackLogo ? draftToSend.logoUrl : (currentLogo || data.draft?.logoUrl || draftToSend.logoUrl || null),
+        backLogoUrl: isBackLogo ? currentLogo : (data.draft?.backLogoUrl || draftToSend.backLogoUrl || null),
       };
       setDraft(updatedDraft);
 
       const isLogoRequest = Boolean(
         data.reply?.toLowerCase().includes("anexe a sua logomarca") ||
-        data.reply?.toLowerCase().includes("botão de clipe")
+        data.reply?.toLowerCase().includes("botão de clipe") ||
+        data.reply?.toLowerCase().includes("selecionar o arquivo") ||
+        data.reply?.toLowerCase().includes("anexar imagem")
       );
 
       const botMessage: ChatMessage = {
@@ -138,6 +144,10 @@ export function UniformAiChat() {
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      if (data.reply?.toLowerCase().includes("digite o nome") || data.reply?.toLowerCase().includes("digite no campo")) {
+        setTimeout(() => textInputRef.current?.focus(), 150);
+      }
 
       // Se a triagem foi concluída, ativa o estúdio de fotos fotorrealistas
       if (data.isCompleted) {
@@ -161,25 +171,47 @@ export function UniformAiChat() {
     }
   };
 
-
-  // Upload da Logo
+  // Upload da Logo com envio automático instantâneo
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setLogoFileName(file.name);
+    const fileName = file.name;
+    setLogoFileName(fileName);
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
       setAttachedLogo(base64);
-      setDraft((prev) => ({ ...prev, logoUrl: base64 }));
+
+      // Detecta se a última mensagem do assistente refere-se às costas
+      const lastBotContent = messages[messages.length - 1]?.content.toLowerCase() || "";
+      const isBackStep = Boolean(
+        draft.hasAskedLogo &&
+        (draft.backCustomizationType === "LOGO_BACK" ||
+         lastBotContent.includes("costas") ||
+         lastBotContent.includes("imagem para estampar nas costas"))
+      );
+
+      if (isBackStep) {
+        setDraft((prev) => ({ ...prev, backLogoUrl: base64, backCustomizationType: "LOGO_BACK" }));
+        handleSendMessage(`Imagem para as costas anexada: ${fileName}`, base64, true);
+      } else {
+        setDraft((prev) => ({ ...prev, logoUrl: base64 }));
+        handleSendMessage(`Logomarca anexada: ${fileName}`, base64, false);
+      }
     };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   // Clique em respostas rápidas
   const handleQuickReplyClick = (reply: string) => {
-    if (reply.includes("Anexar Logo") || reply.includes("selecionei")) {
+    if (
+      reply.includes("Anexar Logo") ||
+      reply.includes("Anexar Imagem") ||
+      reply.includes("selecionei") ||
+      reply.includes("Selecionar Imagem")
+    ) {
       fileInputRef.current?.click();
       return;
     }
@@ -477,6 +509,7 @@ export function UniformAiChat() {
             </Button>
 
             <input
+              ref={textInputRef}
               type="text"
               value={inputValue}
               disabled={isTyping}
@@ -528,6 +561,11 @@ export function UniformAiChat() {
                   }
                   color={draft.primaryColor || { name: "Preto", hex: "#111827" }}
                   logoUrl={draft.logoUrl || null}
+                  backLogoUrl={draft.backLogoUrl || (draft.backCustomizationType === "LOGO_BACK" ? draft.logoUrl : null)}
+                  customBackOffsetY={draft.customBackOffsetY || 0}
+                  onCustomBackOffsetYChange={(offset) =>
+                    setDraft((prev) => ({ ...prev, customBackOffsetY: offset }))
+                  }
                   logoPosition={
                     draft.logoPlacement && draft.logoPlacement !== "NENHUM"
                       ? draft.logoPlacement
@@ -638,11 +676,13 @@ export function UniformAiChat() {
                 </div>
               )}
 
-              {draft.customBackText && (
+              {(draft.customBackText || draft.backCustomizationType === "LOGO_BACK" || draft.backLogoUrl) && (
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
                   <span className="text-slate-500 dark:text-zinc-400">Estampa Costas:</span>
                   <span className="font-bold text-slate-900 dark:text-white">
-                    {draft.customBackText}
+                    {draft.backCustomizationType === "LOGO_BACK" || draft.backLogoUrl
+                      ? "Logomarca / Imagem"
+                      : draft.customBackText}
                   </span>
                 </div>
               )}

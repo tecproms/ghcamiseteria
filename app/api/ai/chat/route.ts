@@ -19,7 +19,9 @@ export interface UniformDraftState {
   logoPlacement?: "PEITO_ESQUERDO" | "PEITO_DIREITO" | "CENTRO_FRONTAL" | "BOLSO" | "MANGA" | "COSTAS" | "NENHUM";
   logoUrl?: string | null;
   hasAskedLogo?: boolean;
-  backCustomizationType?: "NONE" | "COMPANY_NAME" | "INDIVIDUAL_NUMBER";
+  backCustomizationType?: "NONE" | "COMPANY_NAME" | "INDIVIDUAL_NUMBER" | "LOGO_BACK";
+  backLogoUrl?: string | null;
+  customBackOffsetY?: number;
   customBackText?: string;
   customBackNumber?: string;
   quantity?: number;
@@ -175,6 +177,22 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
   let isCompleted = false;
   let imagePrompts = null;
 
+  // AJUSTE DE POSIÇÃO DAS COSTAS (Subir ou Descer)
+  if (
+    (updatedDraft.customBackText || updatedDraft.backLogoUrl || updatedDraft.backCustomizationType) &&
+    (lowerMsg.includes("desce") || lowerMsg.includes("baixo") || lowerMsg.includes("abaixa") || lowerMsg.includes("sobe") || lowerMsg.includes("subir") || lowerMsg.includes("cima"))
+  ) {
+    const isDown = lowerMsg.includes("desce") || lowerMsg.includes("baixo") || lowerMsg.includes("abaixa");
+    const delta = isDown ? 0.05 : -0.05;
+    updatedDraft.customBackOffsetY = Math.max(-0.20, Math.min(0.35, (updatedDraft.customBackOffsetY || 0) + delta));
+
+    reply = isDown
+      ? "Posicionei a estampa das costas mais para baixo! ⬇️ Você pode conferir no modelo ao lado ou usar os botões de seta."
+      : "Posicionei a estampa das costas mais para cima! ⬆️ Você pode conferir no modelo ao lado ou usar os botões de seta.";
+    quickReplies = ["▼ Descer mais um pouco", "▲ Subir um pouco", "Está perfeito assim!"];
+    return NextResponse.json({ success: true, reply, quickReplies, draft: updatedDraft, isCompleted: false });
+  }
+
   // ETAPA 1: Finalidade & Tipo de Peça
   if (!updatedDraft.purpose || !updatedDraft.modelType) {
     if (lowerMsg.includes("empresa") || lowerMsg.includes("escritório") || lowerMsg.includes("corporativo")) {
@@ -269,12 +287,21 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
     reply = `Aplicação de logo configurada para: **${placement === "BOLSO" ? "No Bolso do Peito" : placement}**.\n\n📎 **Por favor, anexe a sua Logomarca agora.**\nClique no botão de **clipe de papel (📎)** abaixo para selecionar a imagem da sua logo (PNG ou JPG). Se não tiver o arquivo agora, clique em 'Continuar sem logo'.`;
     quickReplies = ["📎 Já selecionei / Anexar Logo", "Continuar sem logo agora"];
   }
-  // ETAPA 4B: Pergunta sobre anexo da logo se não respondeu
+  // ETAPA 4B: Pergunta sobre anexo da logo e personalização das costas
   else if (updatedDraft.hasAskedLogo && !updatedDraft.backCustomizationType) {
-    if (lowerMsg.includes("nome da empresa") || lowerMsg.includes("empresa")) {
+    if (lowerMsg.includes("logomarca") || lowerMsg.includes("imagem") || lowerMsg.includes("logo nas costas") || lowerMsg.includes("foto")) {
+      updatedDraft.backCustomizationType = "LOGO_BACK";
+      if (updatedDraft.logoUrl) {
+        reply = "Excelente! Você deseja estampar a **mesma logomarca da frente** nas costas ou prefere **anexar uma imagem diferente**?";
+        quickReplies = ["Usar a mesma Logomarca", "📎 Anexar outra imagem para as Costas", "Sem estampa nas costas"];
+      } else {
+        reply = "Perfeito! 📎 **Por favor, anexe a imagem ou logomarca para estampar nas costas.**\nClique no botão de clipe (📎) abaixo para selecionar o arquivo:";
+        quickReplies = ["📎 Já selecionei / Anexar Imagem", "Sem estampa nas costas"];
+      }
+    } else if (lowerMsg.includes("nome da empresa") || lowerMsg.includes("empresa")) {
       updatedDraft.backCustomizationType = "COMPANY_NAME";
-      reply = "Perfeito! **Qual é o nome da sua empresa** que você deseja estampar nas costas? (Digite o nome abaixo):";
-      quickReplies = ["GH Camiseteria", "Digitar outro nome", "Prefiro sem estampa nas costas"];
+      reply = "Perfeito! **Qual é o nome da sua empresa** que você deseja estampar nas costas?\n\n✍️ *Por favor, digite o nome no campo de texto abaixo e clique em Enviar:*";
+      quickReplies = ["GH Camiseteria", "Prefiro sem estampa nas costas"];
     } else if (lowerMsg.includes("número") || lowerMsg.includes("numero") || lowerMsg.includes("individual")) {
       updatedDraft.backCustomizationType = "INDIVIDUAL_NUMBER";
       reply = "Show! Para personalização individual, qual **nome e número de exemplo** você quer testar nas costas? (Ex: SILVA 10)";
@@ -284,22 +311,64 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
       reply = "Entendido, costas lisas e sem estampas adicionais.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
       quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
     } else {
-      // Pergunta de costas
-      reply = "Logo registrada! 👍\n\nAgora sobre as costas da camisa: você deseja estampar algum **texto, nome da empresa ou número** nas costas?";
-      quickReplies = ["Sem estampa nas costas", "Nome da Empresa", "Nome Individual + Número"];
+      // Pergunta de costas inicial
+      const logoStatus = updatedDraft.logoUrl ? "Logomarca registrada com sucesso! 📎✨" : "Configuração frontal registrada! 👍";
+      reply = `${logoStatus}\n\nAgora sobre as **costas do uniforme**: o que você deseja estampar nas costas?`;
+      quickReplies = [
+        "Sem estampa nas costas",
+        "Estampar Logomarca / Imagem nas Costas",
+        "Nome da Empresa",
+        "Nome Individual + Número",
+      ];
     }
   }
-  // ETAPA 5: Captura do Nome da Empresa nas Costas
+  // ETAPA 4C: Tratamento de Logomarca nas Costas
+  else if (updatedDraft.backCustomizationType === "LOGO_BACK" && !updatedDraft.backLogoUrl) {
+    if (lowerMsg.includes("mesma") || lowerMsg.includes("usar a mesma") || lowerMsg.includes("mesma logomarca")) {
+      updatedDraft.backLogoUrl = updatedDraft.logoUrl || null;
+      reply = "Perfeito! A mesma logomarca será estampada em destaque nas costas. 👍\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+      quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+    } else if (lowerMsg.includes("sem estampa") || lowerMsg.includes("prefiro sem")) {
+      updatedDraft.backCustomizationType = "NONE";
+      reply = "Entendido, sem estampa nas costas.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+      quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+    } else {
+      if (updatedDraft.backLogoUrl || updatedDraft.logoUrl) {
+        if (!updatedDraft.backLogoUrl) updatedDraft.backLogoUrl = updatedDraft.logoUrl;
+        reply = "Imagem das costas registrada com sucesso! 🖼️✨\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+        quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+      } else {
+        reply = "📎 Por favor, clique no botão de clipe (📎) abaixo para selecionar a imagem das costas:";
+        quickReplies = ["Usar a mesma da frente", "Prefiro sem estampa nas costas"];
+      }
+    }
+  }
+  // ETAPA 5: Captura do Nome da Empresa nas Costas (SEM cair na armadilha de 'digitar outro nome')
   else if (updatedDraft.backCustomizationType === "COMPANY_NAME" && !updatedDraft.customBackText) {
     if (lowerMsg.includes("sem estampa") || lowerMsg.includes("prefiro sem")) {
       updatedDraft.backCustomizationType = "NONE";
+      reply = "Costas lisas e sem estampas adicionais.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
+      quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
+    } else if (
+      lowerMsg.includes("digitar outro") ||
+      lowerMsg.includes("digitar nome") ||
+      lowerMsg === "digitar" ||
+      lowerMsg === "outro nome"
+    ) {
+      reply = "✍️ Por favor, **digite no campo de texto abaixo** o nome exato da sua empresa e clique em Enviar:";
+      quickReplies = ["GH Camiseteria", "Prefiro sem estampa nas costas"];
+      return NextResponse.json({
+        success: true,
+        reply,
+        quickReplies,
+        draft: updatedDraft,
+        isCompleted: false,
+      });
     } else {
       updatedDraft.customBackText = lastUserMsg.replace(/^["']|["']$/g, "");
+      reply = `Texto das costas registrado com sucesso: **"${updatedDraft.customBackText}"**! ✍️\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)`;
+      quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
     }
-    reply = updatedDraft.customBackText
-      ? `Texto das costas registrado com sucesso: **"${updatedDraft.customBackText}"**! ✍️\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)`
-      : "Costas sem texto adicionais.\n\nQual é a **quantidade aproximada** de peças que você pretende confeccionar? (Ex: 20, 50, 100)";
-    quickReplies = ["20 peças", "30 peças", "50 peças", "100 peças"];
   }
   // ETAPA 5B: Captura do Número nas Costas
   else if (updatedDraft.backCustomizationType === "INDIVIDUAL_NUMBER" && !updatedDraft.customBackText && !updatedDraft.customBackNumber) {
@@ -314,7 +383,12 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
 
     const pocketDesc = updatedDraft.hasPocket ? `Sim (Bolso ${updatedDraft.pocketColor || "na cor da peça"})` : "Não (Sem bolso)";
     const logoDesc = updatedDraft.logoPlacement === "BOLSO" ? "No Bolso do Peito" : (updatedDraft.logoPlacement || "Peito Esquerdo");
-    const backDesc = updatedDraft.customBackText ? `Texto: "${updatedDraft.customBackText}"` : "Lisa sem estampas";
+    const backDesc =
+      updatedDraft.backCustomizationType === "LOGO_BACK"
+        ? "Logomarca / Imagem estampada nas costas"
+        : updatedDraft.customBackText
+        ? `Texto: "${updatedDraft.customBackText}"`
+        : "Lisa sem estampas";
 
     reply =
       `Registramos a estimativa de **${updatedDraft.quantity} peças**.\n\n` +
