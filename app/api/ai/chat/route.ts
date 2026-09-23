@@ -69,19 +69,21 @@ Seu papel é guiar o cliente de forma acolhedora, objetiva e profissional para d
 REGRAS FUNDAMENTAIS DE TRIAGEM E FLUXO OBRIGATÓRIAS:
 1. Faça uma pergunta por vez, mantendo o diálogo ágil e agradável.
 2. ETAPAS RIGOROSAS:
-   - ETAPA 1 (Finalidade & Modelo): Descubra a finalidade (Empresa, Time, Evento, Indústria) e defina o modelo (Camisa Polo Corporativa, Camiseta Dry Fit, etc.).
-   - ETAPA 2 (Cor Principal): Pergunte a cor principal. Sempre converta a cor para inglês ("solid pitch jet black", "deep dark navy blue", "pure crisp white", etc.).
-   - ETAPA 3 (Modelagem & Bolso):
-     * Pergunte OBRIGATORIAMENTE se terá BOLSO no peito ou SEM BOLSO.
-     * Se COM BOLSO: pergunte se a cor do bolso será a mesma da camisa ou em contraste.
-     * Pergunte o tipo de gola (Polo, Careca, V).
-   - ETAPA 4 (Logomarca e Anexo):
-     * Pergunte onde aplicar a logo (No Bolso do Peito, Peito Esquerdo, Peito Direito, Costas, etc.).
-     * OBRIGATÓRIO: Peça explicitamente para o usuário anexar o arquivo da sua logo usando o botão de clipe (📎).
-   - ETAPA 5 (Costas: Logomarca e Texto):
-     * Pergunte o que deseja estampar nas costas (Sem estampa, Logomarca / Imagem, Nome da Empresa, Nome Individual + Número).
-     * Se o cliente escolher Logomarca nas costas: PERGUNTE EXPLICITAMENTE se deseja também adicionar algum texto junto com a logo (nome da empresa, site, slogan ou telefone).
-     * Se o cliente escolher Nome da Empresa: PERGUNTE EXPLICITAMENTE QUAL É O NOME DA EMPRESA e aguarde a resposta dele.
+   - ETAPA 1 (Finalidade & Modelo):
+     * Descubra a finalidade (Empresa, Time Esportivo / Futebol, Evento, Indústria).
+     * Se for TIME ESPORTIVO / FUTEBOL: a técnica é SUBLIMAÇÃO TOTAL em Dry Fit Tecnológico (impressão digital 100% total em alta definição, sem bolso, cores ilimitadas, degradês, escudo do time no peito, patrocinadores, nome e número dorsal inclusos).
+     * Se for CORPORATIVO: Camisa Polo Piquet ou Camiseta Tradicional.
+   - ETAPA 2 (Cores): Pergunte a cor principal ou combinação de cores do time/uniforme. Converta para inglês ("solid pitch jet black", "deep dark navy blue", etc.).
+   - ETAPA 3 (Modelagem & Gola):
+     * Se for TIME ESPORTIVO / FUTEBOL: NÃO pergunte sobre bolso (uniformes de futebol não possuem bolso). Defina bolso como sem bolso e pergunte sobre o modelo de Gola (Gola V Esportiva ou Gola Careca redonda).
+     * Se for CORPORATIVO / EVENTO: pergunte se terá BOLSO no peito ou SEM BOLSO.
+   - ETAPA 4 (Logomarca / Escudo e Anexo):
+     * Pergunte onde posicionar a logo ou escudo do time (Peito Esquerdo ou Centralizado).
+     * OBRIGATÓRIO: Peça explicitamente para o usuário anexar o arquivo da logo ou escudo usando o botão de clipe (📎).
+   - ETAPA 5 (Costas: Logomarca, Nome e Número):
+     * Pergunte o que deseja estampar nas costas (Para futebol: Nome dos Jogadores + Número, Nome do Time, Número ou Sem estampa).
+     * Se o cliente escolher Logomarca nas costas: PERGUNTE EXPLICITAMENTE se deseja também adicionar algum texto junto com a logo (nome da empresa/time, site, slogan ou telefone).
+     * Se o cliente escolher Nome da Empresa ou Time: PERGUNTE EXPLICITAMENTE QUAL É O NOME e aguarde a resposta dele.
    - ETAPA 6 (Mangas):
      * OBRIGATÓRIO: Pergunte se deseja estampar algum detalhe nas MANGAS (Sem estampa, Bandeira do Brasil na manga, Logo na manga esquerda, Logo na manga direita).
    - ETAPA 7 (Quantidade): Pergunte a quantidade aproximada de peças.
@@ -231,13 +233,14 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
       updatedDraft.fabric = "Piquet 50% Algodão 50% Poliéster Premium";
       reply = "Excelente escolha! Para ambientes corporativos e escritórios, a **Camisa Polo em malha Piquet** é a melhor opção, combinando alinhamento, conforto e alta durabilidade.\n\nQual é a **cor principal** que você deseja para o uniforme?";
       quickReplies = ["Preto Elegante", "Azul Marinho", "Branco Clássico", "Cinza Chumbo"];
-    } else if (lowerMsg.includes("time") || lowerMsg.includes("esport")) {
+    } else if (lowerMsg.includes("time") || lowerMsg.includes("esport") || lowerMsg.includes("futebol")) {
       updatedDraft.purpose = "Time Esportivo";
       updatedDraft.modelType = "TRADITIONAL";
-      updatedDraft.modelName = "Camiseta Esportiva Dry Fit";
-      updatedDraft.fabric = "Dry Fit 100% Poliéster Tecnológico";
-      reply = "Perfeito! Para times e equipes esportivas, recomendamos o tecido **Dry Fit**, super leve, respirável e com proteção UV.\n\nQual a **cor predominante** do seu uniforme?";
-      quickReplies = ["Azul Royal", "Preto", "Vermelho", "Verde Bandeira"];
+      updatedDraft.modelName = "Camisa de Futebol (Sublimação Total)";
+      updatedDraft.fabric = "Dry Fit 100% Tecnológico (Sublimação Total)";
+      updatedDraft.hasPocket = false;
+      reply = "Sensacional! ⚽ Para uniformes de time e futebol, trabalhamos com **Sublimação Total em Dry Fit Tecnológico** — a técnica esportiva onde 100% da camisa (frente, costas e mangas) é estampada digitalmente em alta definição, permitindo listras, degradês, escudo do time, patrocinadores e numeração sem limite de cores!\n\nQual é a **cor predominante ou combinação de cores** do seu time (ex: Preto e Branco, Azul e Branco, Vermelho e Preto)?";
+      quickReplies = ["Preto e Branco", "Azul e Branco", "Vermelho e Preto", "Verde e Branco", "Amarelo e Azul"];
     } else if (lowerMsg.includes("evento") || lowerMsg.includes("promocional")) {
       updatedDraft.purpose = "Evento / Promocional";
       updatedDraft.modelType = "TRADITIONAL";
@@ -247,7 +250,7 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
       quickReplies = ["Preto Elegante", "Branco Clássico", "Azul Marinho", "Cinza"];
     } else {
       reply = "Olá! 👋 Sou o Consultor Virtual da **GH Camiseteria**.\n\nVou guiar a montagem completa do seu uniforme. Para iniciarmos, **qual é a finalidade principal do seu projeto?**";
-      quickReplies = ["🏢 Empresa / Escritório", "⚽ Time Esportivo", "🎉 Evento / Promocional", "🏭 Indústria / Operacional"];
+      quickReplies = ["🏢 Empresa / Escritório", "⚽ Time Esportivo (Futebol)", "🎉 Evento / Promocional", "🏭 Indústria / Operacional"];
     }
   }
   // ETAPA 2: Cor Principal
@@ -265,20 +268,39 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
     else if (lowerMsg.includes("laranja")) colorName = "Laranja";
 
     updatedDraft.primaryColor = { name: colorName, hex, nameEn };
-    reply = `Perfeito, a cor **${colorName}** transmite muita personalidade! ✨\n\nAgora sobre a modelagem: a sua peça terá **BOLSO frontal no peito** ou prefere **SEM BOLSO**?`;
-    quickReplies = ["👜 Com Bolso no Peito", "🚫 Sem Bolso (Lisa)"];
+
+    if (updatedDraft.purpose === "Time Esportivo") {
+      updatedDraft.hasPocket = false;
+      reply = `Excelente combinação de cores para o manto do seu time! ⚽🔥\nNa **Sublimação Total**, a peça não leva bolso para garantir máxima mobilidade e performance.\n\nQual modelo de **Gola** você prefere para a camisa?`;
+      quickReplies = ["Gola V Esportiva", "Gola Careca (Redonda)", "Gola V com Friso Contrastante"];
+    } else {
+      reply = `Perfeito, a cor **${colorName}** transmite muita personalidade! ✨\n\nAgora sobre a modelagem: a sua peça terá **BOLSO frontal no peito** ou prefere **SEM BOLSO**?`;
+      quickReplies = ["👜 Com Bolso no Peito", "🚫 Sem Bolso (Lisa)"];
+    }
   }
-  // ETAPA 3: Bolso no Peito
+  // ETAPA 3: Bolso no Peito (para peças onde ainda não foi definido)
   else if (updatedDraft.hasPocket === undefined) {
-    if (lowerMsg.includes("com bolso") || lowerMsg.includes("sim") || lowerMsg.includes("bolso")) {
+    if (
+      lowerMsg.includes("sem bolso") ||
+      lowerMsg.includes("sem") ||
+      lowerMsg.includes("não") ||
+      lowerMsg.includes("nao") ||
+      lowerMsg.includes("lisa")
+    ) {
+      updatedDraft.hasPocket = false;
+      reply = "Perfeito, corte limpo e moderno sem bolso frontal.\n\nE sobre a gola: qual modelo você prefere?";
+      quickReplies = updatedDraft.modelType === "POLO"
+        ? ["Gola Polo Tradicional", "Gola Polo com Friso Branco", "Gola Polo com Friso Dourado"]
+        : ["Gola Careca (Redonda)", "Gola V"];
+    } else if (lowerMsg.includes("com bolso") || lowerMsg.includes("sim") || lowerMsg === "bolso") {
       updatedDraft.hasPocket = true;
       reply = "Excelente, faremos com bolso no peito! O bolso será da **mesma cor da camisa** ou prefere em **cor de contraste**?";
       quickReplies = ["Mesma cor da peça", "Contraste em Preto", "Contraste em Branco"];
     } else {
       updatedDraft.hasPocket = false;
-      reply = "Perfeito, corte limpo e moderno sem bolso frontal.\n\nE sobre a gola: qual modelo você prefere?";
+      reply = "Perfeito, sem bolso frontal.\n\nE sobre a gola: qual modelo você prefere?";
       quickReplies = updatedDraft.modelType === "POLO"
-        ? ["Gola Polo Tradicional", "Gola Polo com Friso Branco", "Gola Polo com Friso Dourado"]
+        ? ["Gola Polo Tradicional", "Gola Polo com Friso Branco"]
         : ["Gola Careca (Redonda)", "Gola V"];
     }
   }
@@ -293,15 +315,20 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
   // ETAPA 3C: Tipo de Gola
   else if (!updatedDraft.collarType) {
     if (lowerMsg.includes("polo")) updatedDraft.collarType = "Gola Polo Tradicional";
-    else if (lowerMsg.includes("v")) updatedDraft.collarType = "Gola V";
+    else if (lowerMsg.includes("v")) updatedDraft.collarType = "Gola V Esportiva";
     else updatedDraft.collarType = "Gola Careca (Redonda)";
 
-    reply = `Gola definida: **${updatedDraft.collarType}**.\n\nOnde você gostaria de aplicar a **Logomarca** da sua empresa ou equipe?`;
-    quickReplies = updatedDraft.hasPocket
-      ? ["No Bolso do Peito", "Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"]
-      : ["Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"];
+    if (updatedDraft.purpose === "Time Esportivo") {
+      reply = `Gola definida: **${updatedDraft.collarType}**.\n\nOnde você gostaria de posicionar o **Escudo do Time**?`;
+      quickReplies = ["🛡️ Escudo no Peito Esquerdo", "🛡️ Escudo Centralizado"];
+    } else {
+      reply = `Gola definida: **${updatedDraft.collarType}**.\n\nOnde você gostaria de aplicar a **Logomarca** da sua empresa ou equipe?`;
+      quickReplies = updatedDraft.hasPocket
+        ? ["No Bolso do Peito", "Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"]
+        : ["Peito Esquerdo", "Peito Direito", "Centralizada no Peito", "Na Manga", "Costas"];
+    }
   }
-  // ETAPA 4: Posição da Logo
+  // ETAPA 4: Posição da Logo / Escudo
   else if (!updatedDraft.logoPlacement) {
     let placement: UniformDraftState["logoPlacement"] = "PEITO_ESQUERDO";
     if (lowerMsg.includes("bolso")) placement = "BOLSO";
@@ -313,42 +340,67 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
     updatedDraft.logoPlacement = placement;
     updatedDraft.hasAskedLogo = true;
 
-    reply = `Aplicação de logo configurada para: **${placement === "BOLSO" ? "No Bolso do Peito" : placement}**.\n\n📎 **Por favor, anexe a sua Logomarca agora.**\nClique no botão de **clipe de papel (📎)** abaixo para selecionar a imagem da sua logo (PNG ou JPG). Se não tiver o arquivo agora, clique em 'Continuar sem logo'.`;
-    quickReplies = ["📎 Já selecionei / Anexar Logo", "Continuar sem logo agora"];
+    if (updatedDraft.purpose === "Time Esportivo") {
+      reply = `Aplicação definida: **${placement === "CENTRO_FRONTAL" ? "Escudo Centralizado" : "Escudo no Peito Esquerdo"}**.\n\n📎 **Por favor, anexe o arquivo do Escudo do seu time agora.**\nClique no botão de **clipe de papel (📎)** abaixo para enviar a imagem do escudo (PNG ou JPG). Se não tiver o arquivo agora, clique em 'Continuar sem escudo'.`;
+      quickReplies = ["📎 Já selecionei / Anexar Escudo", "Continuar sem escudo agora"];
+    } else {
+      reply = `Aplicação de logo configurada para: **${placement === "BOLSO" ? "No Bolso do Peito" : placement}**.\n\n📎 **Por favor, anexe a sua Logomarca agora.**\nClique no botão de **clipe de papel (📎)** abaixo para selecionar a imagem da sua logo (PNG ou JPG). Se não tiver o arquivo agora, clique em 'Continuar sem logo'.`;
+      quickReplies = ["📎 Já selecionei / Anexar Logo", "Continuar sem logo agora"];
+    }
   }
   // ETAPA 4B: Pergunta sobre anexo da logo e personalização das costas
   else if (updatedDraft.hasAskedLogo && !updatedDraft.backCustomizationType) {
-    if (lowerMsg.includes("logomarca") || lowerMsg.includes("imagem") || lowerMsg.includes("logo nas costas") || lowerMsg.includes("foto")) {
+    if (
+      lowerMsg.includes("número") ||
+      lowerMsg.includes("numero") ||
+      lowerMsg.includes("jogadores") ||
+      lowerMsg.includes("individual")
+    ) {
+      updatedDraft.backCustomizationType = "INDIVIDUAL_NUMBER";
+      reply = "Show de bola! Na Sublimação Total, a numeração dorsal dos jogadores já está 100% inclusa! ⚽🔢\nQual **nome e número de exemplo** você quer testar nas costas? (Ex: SILVA 10)";
+      quickReplies = ["SILVA 10", "CAMISA 10", "Sem estampa nas costas"];
+    } else if (lowerMsg.includes("logomarca") || lowerMsg.includes("imagem") || lowerMsg.includes("logo nas costas") || lowerMsg.includes("foto") || lowerMsg.includes("escudo")) {
       updatedDraft.backCustomizationType = "LOGO_BACK";
       if (updatedDraft.logoUrl) {
-        reply = "Excelente! Você deseja estampar a **mesma logomarca da frente** nas costas ou prefere **anexar uma imagem diferente**?";
+        reply = "Excelente! Você deseja estampar a **mesma logomarca/escudo da frente** nas costas ou prefere **anexar uma imagem diferente**?";
         quickReplies = ["Usar a mesma Logomarca", "📎 Anexar outra imagem para as Costas", "Sem estampa nas costas"];
       } else {
         reply = "Perfeito! 📎 **Por favor, anexe a imagem ou logomarca para estampar nas costas.**\nClique no botão de clipe (📎) abaixo para selecionar o arquivo:";
         quickReplies = ["📎 Já selecionei / Anexar Imagem", "Sem estampa nas costas"];
       }
-    } else if (lowerMsg.includes("nome da empresa") || lowerMsg.includes("empresa")) {
+    } else if (lowerMsg.includes("nome da empresa") || lowerMsg.includes("nome do time") || lowerMsg.includes("empresa") || lowerMsg.includes("time")) {
       updatedDraft.backCustomizationType = "COMPANY_NAME";
-      reply = "Perfeito! **Qual é o nome da sua empresa** que você deseja estampar nas costas?\n\n✍️ *Por favor, digite o nome no campo de texto abaixo e clique em Enviar:*";
+      reply = updatedDraft.purpose === "Time Esportivo"
+        ? "Perfeito! **Qual é o nome do Time ou Cidade** que você deseja estampar nas costas?\n\n✍️ *Digite o nome no campo de texto abaixo e clique em Enviar:*"
+        : "Perfeito! **Qual é o nome da sua empresa** que você deseja estampar nas costas?\n\n✍️ *Por favor, digite o nome no campo de texto abaixo e clique em Enviar:*";
       quickReplies = ["GH Camiseteria", "Prefiro sem estampa nas costas"];
-    } else if (lowerMsg.includes("número") || lowerMsg.includes("numero") || lowerMsg.includes("individual")) {
-      updatedDraft.backCustomizationType = "INDIVIDUAL_NUMBER";
-      reply = "Show! Para personalização individual, qual **nome e número de exemplo** você quer testar nas costas? (Ex: SILVA 10)";
-      quickReplies = ["SILVA 10", "CAMISA 10", "Sem estampa nas costas"];
     } else if (lowerMsg.includes("sem estampa") || lowerMsg.includes("lisa") || lowerMsg.includes("não")) {
       updatedDraft.backCustomizationType = "NONE";
       reply = "Entendido, costas lisas e sem estampas adicionais.\n\nE sobre as **mangas do seu uniforme**, você deseja estampar algum detalhe (como a bandeira do Brasil, logo ou texto)?";
       quickReplies = ["🚫 Sem estampa nas mangas", "🇧🇷 Bandeira do Brasil na manga", "👕 Logo na manga esquerda", "👕 Logo na manga direita"];
     } else {
       // Pergunta de costas inicial
-      const logoStatus = updatedDraft.logoUrl ? "Logomarca registrada com sucesso! 📎✨" : "Configuração frontal registrada! 👍";
-      reply = `${logoStatus}\n\nAgora sobre as **costas do uniforme**: o que você deseja estampar nas costas?`;
-      quickReplies = [
-        "Sem estampa nas costas",
-        "Estampar Logomarca / Imagem nas Costas",
-        "Nome da Empresa",
-        "Nome Individual + Número",
-      ];
+      const logoStatus = updatedDraft.logoUrl
+        ? (updatedDraft.purpose === "Time Esportivo" ? "Escudo do time registrado com sucesso! 📎⚽" : "Logomarca registrada com sucesso! 📎✨")
+        : "Configuração frontal registrada! 👍";
+
+      if (updatedDraft.purpose === "Time Esportivo") {
+        reply = `${logoStatus}\n\nAgora sobre as **costas da camisa do time** (já inclusas na Sublimação Total):\nO que você deseja estampar nas costas?`;
+        quickReplies = [
+          "Nome dos Jogadores + Número",
+          "Nome do Time / Cidade + Número",
+          "Apenas Número",
+          "Sem estampa nas costas",
+        ];
+      } else {
+        reply = `${logoStatus}\n\nAgora sobre as **costas do uniforme**: o que você deseja estampar nas costas?`;
+        quickReplies = [
+          "Sem estampa nas costas",
+          "Estampar Logomarca / Imagem nas Costas",
+          "Nome da Empresa",
+          "Nome Individual + Número",
+        ];
+      }
     }
   }
   // ETAPA 4C: Tratamento de Logomarca nas Costas
@@ -498,7 +550,12 @@ function handleLocalFallback(messages: ChatMessage[], draft: UniformDraftState) 
     reply = "🎉 **Projeto de Uniforme Concluído com Sucesso!**\n\nNossa inteligência artificial de estúdio gerou as imagens do seu uniforme com base em todas as especificações escolhidas:";
 
     const colorInfo = translateColorToEnglish(updatedDraft.primaryColor?.name);
-    const modelEnglish = updatedDraft.modelType === "POLO" ? "classic polo shirt with collar and buttons" : "crewneck short-sleeve t-shirt";
+    const isSoccer = updatedDraft.purpose === "Time Esportivo" || updatedDraft.modelName?.includes("Futebol");
+    const modelEnglish = isSoccer
+      ? "athletic soccer jersey with dynamic full dye-sublimation graphics"
+      : updatedDraft.modelType === "POLO"
+      ? "classic polo shirt with collar and buttons"
+      : "crewneck short-sleeve t-shirt";
     const pocketEnglish = updatedDraft.hasPocket ? ", tailored chest pocket on front left chest" : "";
 
     const studioStyle =

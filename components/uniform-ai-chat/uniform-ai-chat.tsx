@@ -66,7 +66,7 @@ export function UniformAiChat() {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       quickReplies: [
         "🏢 Empresa / Escritório",
-        "⚽ Time Esportivo",
+        "⚽ Time Esportivo (Futebol)",
         "🎉 Evento / Promocional",
         "🏭 Indústria / Operacional",
       ],
@@ -229,7 +229,7 @@ export function UniformAiChat() {
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         quickReplies: [
           "🏢 Empresa / Escritório",
-          "⚽ Time Esportivo",
+          "⚽ Time Esportivo (Futebol)",
           "🎉 Evento / Promocional",
           "🏭 Indústria / Operacional",
         ],
@@ -247,7 +247,10 @@ export function UniformAiChat() {
     const unitPrice = draft.modelType === "POLO" ? 48 : 35;
     const totalPrice = qty * unitPrice;
 
-    const pocketInfo = draft.hasPocket
+    const isSoccer = draft.purpose === "Time Esportivo" || draft.modelName?.includes("Futebol");
+    const pocketInfo = isSoccer
+      ? "Não se aplica (Sublimação Total)"
+      : draft.hasPocket
       ? `Sim (Cor: ${draft.pocketColor || "Mesma da peça"})`
       : "Não (Sem bolso frontal)";
 
@@ -651,9 +654,13 @@ export function UniformAiChat() {
               </div>
 
               <div className="flex justify-between py-1 border-b border-slate-100 dark:border-zinc-800/80">
-                <span className="text-slate-500 dark:text-zinc-400">Bolso no Peito:</span>
+                <span className="text-slate-500 dark:text-zinc-400">
+                  {draft.purpose === "Time Esportivo" ? "Técnica:" : "Bolso no Peito:"}
+                </span>
                 <span className={`font-bold ${draft.hasPocket ? "text-amber-600 dark:text-[#d4af37]" : "text-slate-900 dark:text-white"}`}>
-                  {draft.hasPocket === undefined
+                  {draft.purpose === "Time Esportivo"
+                    ? "Sublimação Total Digital"
+                    : draft.hasPocket === undefined
                     ? "Em triagem"
                     : draft.hasPocket
                     ? `Sim (${draft.pocketColor || "Mesma cor"})`
