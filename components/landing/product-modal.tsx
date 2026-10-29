@@ -3,7 +3,8 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 import { Product, COMPANY_INFO } from "@/data/catalog";
-import { X, MessageCircle, CheckCircle2, Layers, Scissors, Palette, Users, ArrowUpRight } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/icons";
+import { X, CheckCircle2, Layers, Scissors, Palette, Users, ArrowUpRight } from "lucide-react";
 
 interface ProductModalProps {
   product: Product | null;
@@ -182,7 +183,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
             rel="noopener noreferrer"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all hover:scale-[1.02]"
           >
-            <MessageCircle className="w-4 h-4 fill-slate-950" />
+            <WhatsAppIcon className="w-4 h-4 text-slate-950 fill-slate-950" />
             <span>Pedir Orçamento no WhatsApp</span>
             <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
           </a>

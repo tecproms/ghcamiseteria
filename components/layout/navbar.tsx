@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { COMPANY_INFO } from "@/data/catalog";
-import { Phone, MessageCircle, Menu, X, ArrowUpRight, Sparkles } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/icons";
+import { Phone, Menu, X, ArrowUpRight, Sparkles } from "lucide-react";
 
 export function Navbar() {
+  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -17,6 +20,11 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Oculta no painel administrativo para evitar sobreposição de menus
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
 
   const navLinks = [
     { href: "#inicio", label: "Início" },
@@ -75,7 +83,7 @@ export function Navbar() {
               rel="noopener noreferrer"
               className="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide uppercase text-slate-950 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
             >
-              <MessageCircle className="w-4 h-4 fill-slate-950" />
+              <WhatsAppIcon className="w-4 h-4 fill-slate-950 text-slate-950" />
               <span>Orçamento WhatsApp</span>
               <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </a>
@@ -92,7 +100,7 @@ export function Navbar() {
               className="p-2 rounded-lg bg-amber-400 text-slate-950"
               aria-label="WhatsApp"
             >
-              <MessageCircle className="w-4 h-4" />
+              <WhatsAppIcon className="w-4 h-4 fill-slate-950 text-slate-950" />
             </a>
 
             <button
@@ -134,7 +142,7 @@ export function Navbar() {
                 rel="noopener noreferrer"
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm uppercase text-slate-950 bg-gradient-to-r from-amber-300 to-amber-500 shadow-lg shadow-amber-500/20"
               >
-                <MessageCircle className="w-4 h-4 fill-slate-950" />
+                <WhatsAppIcon className="w-4 h-4 text-slate-950 fill-slate-950" />
                 Pedir Orçamento no WhatsApp
               </a>
 

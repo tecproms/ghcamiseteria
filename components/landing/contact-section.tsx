@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { COMPANY_INFO } from "@/data/catalog";
-import { MessageCircle, MapPin, Clock, Send, Sparkles } from "lucide-react";
-import { InstagramIcon } from "@/components/ui/icons";
+import { MapPin, Clock, Send, Sparkles } from "lucide-react";
+import { InstagramIcon, WhatsAppIcon } from "@/components/ui/icons";
 
 export function ContactSection() {
   const [name, setName] = useState("");
@@ -54,8 +54,8 @@ export function ContactSection() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-4 p-4 rounded-2xl bg-[#090A0F] border border-amber-500/30 hover:border-amber-400 transition-all hover:scale-[1.01] shadow-lg group"
               >
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                  <MessageCircle className="w-6 h-6 text-emerald-400 fill-emerald-400/20" />
+                <div className="w-12 h-12 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 flex items-center justify-center shrink-0">
+                  <WhatsAppIcon className="w-6 h-6 text-[#25D366] fill-[#25D366]" />
                 </div>
                 <div>
                   <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">

@@ -1,7 +1,8 @@
 import React from "react";
 import Image from "next/image";
 import { COMPANY_INFO } from "@/data/catalog";
-import { MessageCircle, ArrowRight, ShieldCheck, Sparkles, Award, Clock } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/icons";
+import { ArrowRight, ShieldCheck, Sparkles, Award, Clock } from "lucide-react";
 
 export function Hero() {
   return (
@@ -55,7 +56,7 @@ export function Hero() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-7 py-4 rounded-xl font-semibold text-sm tracking-wide text-white bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-400 transition-all duration-200 hover:scale-[1.02]"
               >
-                <MessageCircle className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
+                <WhatsAppIcon className="w-5 h-5 text-[#25D366] fill-[#25D366]" />
                 <span>Chamar no WhatsApp</span>
               </a>
             </div>

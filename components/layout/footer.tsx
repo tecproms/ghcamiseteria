@@ -1,11 +1,19 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { COMPANY_INFO } from "@/data/catalog";
-import { MessageCircle } from "lucide-react";
-import { InstagramIcon } from "@/components/ui/icons";
+import { InstagramIcon, WhatsAppIcon } from "@/components/ui/icons";
 
 export function Footer() {
+  const pathname = usePathname();
+
+  // Oculta no painel administrativo
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
   return (
     <footer className="bg-[#07080D] border-t border-amber-500/20 pt-16 pb-12 text-slate-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -67,7 +75,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-amber-400 transition-colors"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <WhatsAppIcon className="w-4 h-4 text-emerald-400 fill-emerald-400" />
                 <span>WhatsApp: {COMPANY_INFO.phoneFormatted}</span>
               </a>
 

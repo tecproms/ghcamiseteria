@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import { CATEGORIES, PRODUCTS, Product, COMPANY_INFO } from "@/data/catalog";
 import { ProductModal } from "@/components/landing/product-modal";
+import { WhatsAppIcon } from "@/components/ui/icons";
 import {
   Search,
   SlidersHorizontal,
@@ -234,7 +235,7 @@ export function CatalogGrid({ initialProducts }: CatalogGridProps) {
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 transition-colors shadow-sm"
                       >
-                        <MessageCircle className="w-3.5 h-3.5 fill-slate-950" />
+                        <WhatsAppIcon className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
                         Cotar
                       </a>
                     </div>
