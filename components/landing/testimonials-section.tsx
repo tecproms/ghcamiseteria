@@ -69,7 +69,7 @@ export function TestimonialsSection() {
                   <Quote className="w-6 h-6 text-slate-700" />
                 </div>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed italic mb-6">
-                  "{rev.text}"
+                  &ldquo;{rev.text}&rdquo;
                 </p>
               </div>
 

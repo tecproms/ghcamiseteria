@@ -1,8 +1,7 @@
 import React from "react";
-import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { COMPANY_INFO } from "@/data/catalog";
-import { MessageCircle, Phone, ArrowUp } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/icons";
 
 export function Footer() {
@@ -48,8 +47,8 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#simulador" className="hover:text-amber-400 transition-colors">
-                  Simulador de Orçamento
+                <a href="#contato" className="hover:text-amber-400 transition-colors">
+                  Fale Conosco
                 </a>
               </li>
             </ul>

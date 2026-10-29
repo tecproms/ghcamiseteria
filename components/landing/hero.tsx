@@ -7,10 +7,10 @@ export function Hero() {
   return (
     <section id="inicio" className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       {/* Background radial luxury lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] pointer-events-none -z-10">
-        <div className="absolute -top-24 left-1/4 w-[500px] h-[500px] bg-amber-500/15 rounded-full blur-[140px]" />
-        <div className="absolute top-20 right-1/4 w-[450px] h-[450px] bg-amber-600/10 rounded-full blur-[160px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[250px] bg-gradient-to-r from-transparent via-amber-500/10 to-transparent blur-[120px]" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[650px] pointer-events-none -z-10">
+        <div className="absolute -top-24 left-1/4 w-[550px] h-[550px] bg-amber-500/20 rounded-full blur-[140px]" />
+        <div className="absolute top-20 right-1/4 w-[450px] h-[450px] bg-amber-600/15 rounded-full blur-[160px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[250px] bg-gradient-to-r from-transparent via-amber-500/15 to-transparent blur-[120px]" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,9 +41,9 @@ export function Hero() {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-10">
               <a
                 href="#catalogo"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-7 py-4 rounded-xl font-bold text-sm tracking-wide uppercase text-slate-950 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-xl shadow-amber-500/25 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-bold text-sm tracking-wide uppercase text-slate-950 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-xl shadow-amber-500/25 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
               >
-                <span>Ver Catálogo Online</span>
+                <span>Explorar Catálogo Online</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </a>
 
@@ -94,44 +94,35 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Right Column: Hero Visual Showcase */}
+          {/* Right Column: Hero Visual Showcase with Official 3D Gold Logo */}
           <div className="lg:col-span-5 relative">
             <div className="relative mx-auto max-w-md lg:max-w-none">
               {/* Outer Golden Glow Border Frame */}
-              <div className="absolute -inset-1.5 bg-gradient-to-tr from-amber-500/30 via-amber-400/10 to-amber-600/40 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute -inset-1.5 bg-gradient-to-tr from-amber-500/35 via-amber-400/20 to-amber-600/40 rounded-3xl blur-2xl opacity-80 transition duration-1000" />
 
-              <div className="relative rounded-2xl overflow-hidden border border-amber-500/30 bg-[#0C0E14] shadow-2xl shadow-black">
-                {/* Catalog Cover Image */}
-                <div className="relative aspect-[3/4] w-full">
+              <div className="relative rounded-2xl overflow-hidden border border-amber-500/40 bg-gradient-to-b from-[#10131C] via-[#0C0E14] to-[#0A0C12] shadow-2xl shadow-black p-8 sm:p-10 flex flex-col items-center text-center">
+                {/* Official 3D Golden Logo */}
+                <div className="relative w-full max-w-[340px] aspect-[4/3] flex items-center justify-center mb-6">
                   <Image
-                    src="/images/brand/hero-catalog.png"
-                    alt="Catálogo GH Camiseteria - Uniformes em Geral"
+                    src="/images/brand/logo-gh.png"
+                    alt="GH Camiseteria Oficial"
                     fill
                     priority
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
-                    className="object-cover object-center"
+                    sizes="(max-width: 768px) 100vw, 400px"
+                    className="object-contain drop-shadow-[0_8px_30px_rgba(229,169,60,0.45)] transition-transform duration-500 hover:scale-105"
                   />
-                  {/* Subtle vignette gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-transparent to-transparent opacity-80" />
                 </div>
 
-                {/* Floating Bottom Info Pill */}
-                <div className="absolute bottom-4 inset-x-4 p-4 rounded-xl bg-[#0C0E14]/90 backdrop-blur-md border border-amber-500/30 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider block">
-                        Catálogo Oficial
-                      </span>
-                      <span className="text-sm font-bold text-white">
-                        Sua ideia, do seu jeito.
-                      </span>
-                    </div>
-                    <a
-                      href="#catalogo"
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition-colors shadow-sm"
-                    >
-                      Ver Modelos
-                    </a>
+                <div className="w-full pt-6 border-t border-amber-500/20 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 text-amber-400 text-xs font-extrabold uppercase tracking-widest">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Catálogo de Uniformes</span>
+                  </div>
+                  <p className="text-sm text-slate-300 font-medium">
+                    &ldquo;Qualidade, conforto e identidade para empresas, escolas, times e profissionais.&rdquo;
+                  </p>
+                  <div className="text-xs font-bold text-amber-300/90 pt-1">
+                    SUA IDEIA, DO SEU JEITO.
                   </div>
                 </div>
               </div>
@@ -140,7 +131,7 @@ export function Hero() {
               <div className="hidden sm:flex absolute -top-5 -left-6 items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#0E1017]/95 border border-amber-500/30 shadow-xl backdrop-blur-md">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-xs font-bold text-slate-200">
-                  Polos Corporativas & Camisas
+                  Polos & Camisas Sociais
                 </span>
               </div>
 

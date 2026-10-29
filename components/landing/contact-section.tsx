@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import { COMPANY_INFO } from "@/data/catalog";
-import { Phone, MessageCircle, MapPin, Clock, Send, Sparkles } from "lucide-react";
+import { MessageCircle, MapPin, Clock, Send, Sparkles } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/icons";
 
 export function ContactSection() {

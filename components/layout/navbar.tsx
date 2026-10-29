@@ -23,7 +23,6 @@ export function Navbar() {
     { href: "#catalogo", label: "Catálogo Online" },
     { href: "#personalizacao", label: "Técnicas & Acabamentos" },
     { href: "#tecidos", label: "Guia de Tecidos" },
-    { href: "#simulador", label: "Simulador de Cotação" },
     { href: "#contato", label: "Fale Conosco" },
   ];
 

@@ -17,7 +17,6 @@ import {
   Tag,
   MessageCircle,
   Eye,
-  ArrowRight,
 } from "lucide-react";
 
 export function CatalogGrid() {
@@ -145,7 +144,7 @@ export function CatalogGrid() {
                       src={product.image}
                       alt={product.name}
                       fill
-                      className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     />
 
@@ -239,7 +238,7 @@ export function CatalogGrid() {
               Nenhum modelo encontrado
             </h3>
             <p className="text-xs text-slate-400 mb-4">
-              Não encontramos nenhum item correspondente à busca "{searchQuery}".
+              Não encontramos nenhum item correspondente à busca &quot;{searchQuery}&quot;.
             </p>
             <button
               onClick={() => {

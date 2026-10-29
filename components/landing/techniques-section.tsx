@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import { TECHNIQUES, COMPANY_INFO } from "@/data/catalog";
 import { Scissors, CheckCircle, Sparkles, MessageCircle, ArrowRight } from "lucide-react";
 

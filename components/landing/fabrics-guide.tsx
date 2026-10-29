@@ -1,6 +1,6 @@
 import React from "react";
 import { FABRICS_GUIDE } from "@/data/catalog";
-import { Layers, ShieldCheck, Feather, Sparkles } from "lucide-react";
+import { Layers, Feather } from "lucide-react";
 
 export function FabricsGuide() {
   return (

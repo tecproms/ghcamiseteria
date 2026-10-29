@@ -70,7 +70,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                   src={product.image}
                   alt={product.name}
                   fill
-                  className="object-cover object-center"
+                  className="object-cover object-top"
                   sizes="(max-width: 768px) 100vw, 400px"
                 />
               </div>
