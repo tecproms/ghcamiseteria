@@ -1,92 +1,101 @@
+import React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/brand/logo";
+import { COMPANY_INFO } from "@/data/catalog";
+import { MessageCircle, Phone, ArrowUp } from "lucide-react";
+import { InstagramIcon } from "@/components/ui/icons";
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-slate-50 text-slate-600 dark:border-zinc-900 dark:bg-zinc-950 dark:text-zinc-400 transition-colors">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-slate-900 dark:text-white">
-              <div className="relative h-10 w-10 flex items-center justify-center">
-                <Image
-                  src="/logo.png"
-                  alt="GH Camiseteria"
-                  width={40}
-                  height={40}
-                  className="object-contain dark:hidden"
-                />
-                <Image
-                  src="/logo-dark.png"
-                  alt="GH Camiseteria"
-                  width={40}
-                  height={40}
-                  className="object-contain hidden dark:block"
-                />
-              </div>
-              <span className="font-extrabold tracking-tight text-slate-900 dark:text-white">GH Camiseteria</span>
-            </div>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-md">
-              Especialistas em uniformes personalizados, camisas para empresas, eventos e equipes com qualidade profissional e acabamento impecável.
+    <footer className="bg-[#07080D] border-t border-amber-500/20 pt-16 pb-12 text-slate-400">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-slate-800">
+          {/* Brand Info */}
+          <div className="lg:col-span-5 space-y-4">
+            <Logo size="md" />
+            <p className="text-xs sm:text-sm text-slate-400 max-w-sm leading-relaxed">
+              Uniformes em geral com qualidade premium, caimento alinhado e técnicas avançadas de personalização. Atendemos empresas, times, escolas e hospitais em todo o Mato Grosso do Sul e Brasil.
             </p>
+            <div className="text-xs text-amber-400 font-semibold tracking-wide">
+              {COMPANY_INFO.tagline}
+            </div>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-zinc-200 uppercase tracking-wider mb-4">Navegação</h4>
-            <ul className="space-y-2 text-sm">
+          {/* Quick Links */}
+          <div className="lg:col-span-3 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+              Navegação
+            </h4>
+            <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
+                <a href="#inicio" className="hover:text-amber-400 transition-colors">
                   Início
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/uniformes" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
-                  Catálogo de Uniformes
-                </Link>
+                <a href="#catalogo" className="hover:text-amber-400 transition-colors">
+                  Catálogo Online Completo
+                </a>
               </li>
               <li>
-                <Link href="/monte-seu-uniforme" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
-                  Monte seu Uniforme
-                </Link>
+                <a href="#personalizacao" className="hover:text-amber-400 transition-colors">
+                  Bordado, Silk, Sublimação & DTF
+                </a>
               </li>
               <li>
-                <Link href="/meus-pedidos" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
-                  Acompanhar Pedido
-                </Link>
+                <a href="#tecidos" className="hover:text-amber-400 transition-colors">
+                  Guia de Tecidos
+                </a>
+              </li>
+              <li>
+                <a href="#simulador" className="hover:text-amber-400 transition-colors">
+                  Simulador de Orçamento
+                </a>
               </li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-zinc-200 uppercase tracking-wider mb-4">Acesso</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/login" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
-                  Área do Cliente
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin/dashboard" className="hover:text-slate-900 dark:hover:text-[#d4af37] transition-colors">
-                  Painel de Gestão
-                </Link>
-              </li>
-            </ul>
+          {/* Direct Channels */}
+          <div className="lg:col-span-4 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+              Canais Oficiais
+            </h4>
+            <div className="space-y-2 text-xs">
+              <a
+                href={COMPANY_INFO.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-amber-400 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <span>WhatsApp: {COMPANY_INFO.phoneFormatted}</span>
+              </a>
+
+              <a
+                href={COMPANY_INFO.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-amber-400 transition-colors"
+              >
+                <InstagramIcon className="w-4 h-4 text-pink-400" />
+                <span>Instagram: {COMPANY_INFO.instagram}</span>
+              </a>
+
+              <div className="pt-2 text-[11px] text-slate-500">
+                Atendimento: {COMPANY_INFO.hours}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-slate-200 dark:border-zinc-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 dark:text-zinc-500">
-          <p>© {new Date().getFullYear()} GH Camiseteria & Uniformes Personalizados. Todos os direitos reservados.</p>
-          <p>
-            Criado por{" "}
-            <a
-              href="https://techproms.com.br"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-slate-600 hover:text-slate-900 dark:text-[#d4af37] dark:hover:text-amber-300 transition-colors"
-            >
-              Techpro MS
-            </a>
-          </p>
+        {/* Bottom Credits */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div>
+            © {new Date().getFullYear()} GH Camiseteria. Todos os direitos reservados.
+          </div>
+          <div className="text-[11px] text-slate-600">
+            Qualidade, Conforto & Identidade Visual
+          </div>
         </div>
       </div>
     </footer>

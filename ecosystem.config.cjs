@@ -3,14 +3,14 @@ module.exports = {
     {
       name: "ghcamiseteria",
       script: "node_modules/next/dist/bin/next",
-      args: "start",
+      args: "start -p 3500",
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
-        PORT: 3000,
+        PORT: 3500,
       },
     },
   ],

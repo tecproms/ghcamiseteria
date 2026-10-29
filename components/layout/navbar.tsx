@@ -1,174 +1,151 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X, User, ShieldCheck, UserCheck } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Logo } from "@/components/brand/logo";
+import { COMPANY_INFO } from "@/data/catalog";
+import { Phone, MessageCircle, Menu, X, ArrowUpRight, Sparkles } from "lucide-react";
 
 export function Navbar() {
-  const pathname = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { profile, isAuthenticated, isAdmin } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/uniformes", label: "Uniformes" },
-    { href: "/monte-seu-uniforme", label: "Monte seu uniforme" },
-    { href: "/meus-projetos", label: "Meus projetos" },
-    { href: "/meus-orcamentos", label: "Meus orçamentos" },
-    { href: "/meus-pedidos", label: "Meus pedidos" },
+    { href: "#inicio", label: "Início" },
+    { href: "#catalogo", label: "Catálogo Online" },
+    { href: "#personalizacao", label: "Técnicas & Acabamentos" },
+    { href: "#tecidos", label: "Guia de Tecidos" },
+    { href: "#simulador", label: "Simulador de Cotação" },
+    { href: "#contato", label: "Fale Conosco" },
   ];
 
-  const isActive = (href: string) => {
-    if (href === "/" && pathname !== "/") return false;
-    return pathname.startsWith(href);
-  };
-
-  const displayName = profile?.full_name?.split(" ")[0] || "Perfil";
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-zinc-800/90 dark:bg-zinc-950/95 dark:supports-[backdrop-filter]:bg-zinc-950/70 transition-colors">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-slate-900 dark:text-white">
-          <div className="relative h-10 w-10 flex items-center justify-center">
-            <Image
-              src="/logo.png"
-              alt="GH Camiseteria"
-              width={40}
-              height={40}
-              className="object-contain dark:hidden"
-              priority
-            />
-            <Image
-              src="/logo-dark.png"
-              alt="GH Camiseteria"
-              width={40}
-              height={40}
-              className="object-contain hidden dark:block"
-              priority
-            />
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#090A0F]/90 backdrop-blur-md border-b border-amber-500/20 shadow-2xl shadow-black/80 py-3"
+          : "bg-gradient-to-b from-[#090A0F]/95 via-[#090A0F]/70 to-transparent py-4 sm:py-5"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <Link href="#inicio" className="group flex items-center transition-transform hover:scale-[1.02]">
+            <Logo size="md" />
+          </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-7">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-slate-300 hover:text-amber-400 transition-colors relative py-1 group"
+              >
+                {link.label}
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-300 group-hover:w-full rounded-full" />
+              </a>
+            ))}
+          </nav>
+
+          {/* CTA Right Actions */}
+          <div className="hidden sm:flex items-center gap-3">
+            {/* Phone link */}
+            <a
+              href={`tel:${COMPANY_INFO.phoneRaw}`}
+              className="hidden xl:flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-300 px-3 py-2 rounded-lg transition-colors border border-slate-800 bg-slate-900/50"
+            >
+              <Phone className="w-3.5 h-3.5 text-amber-400" />
+              <span>{COMPANY_INFO.phoneFormatted}</span>
+            </a>
+
+            {/* Direct WhatsApp Quote Button */}
+            <a
+              href={`${COMPANY_INFO.whatsappUrl}?text=${encodeURIComponent(
+                "Olá GH Camiseteria! Gostaria de solicitar um orçamento para uniformes."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs tracking-wide uppercase text-slate-950 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            >
+              <MessageCircle className="w-4 h-4 fill-slate-950" />
+              <span>Orçamento WhatsApp</span>
+              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+            </a>
           </div>
-          <span className="font-extrabold tracking-tight">GH Camiseteria</span>
-        </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-slate-900 dark:hover:text-[#d4af37] ${
-                isActive(link.href)
-                  ? "text-slate-900 dark:text-[#d4af37] font-semibold"
-                  : "text-slate-600 dark:text-zinc-400"
-              }`}
+          {/* Mobile Menu Toggle Button */}
+          <div className="flex sm:hidden items-center gap-2">
+            <a
+              href={`${COMPANY_INFO.whatsappUrl}?text=${encodeURIComponent(
+                "Olá GH Camiseteria! Gostaria de um orçamento."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg bg-amber-400 text-slate-950"
+              aria-label="WhatsApp"
             >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+              <MessageCircle className="w-4 h-4" />
+            </a>
 
-        {/* Action Buttons */}
-        <div className="hidden md:flex items-center gap-3">
-          <ThemeToggle />
-
-          {(!isAuthenticated || isAdmin) && (
-            <Link
-              href="/admin/dashboard"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-900 transition-colors"
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-slate-300 hover:text-white bg-slate-900/80 border border-slate-800"
+              aria-label="Abrir Menu"
             >
-              <ShieldCheck className="h-4 w-4" />
-              Admin
-            </Link>
-          )}
-
-          {isAuthenticated ? (
-            <Link
-              href="/perfil"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-sm"
-            >
-              <UserCheck className="h-4 w-4 text-emerald-600 dark:text-[#d4af37]" />
-              <span className="max-w-[120px] truncate">{displayName}</span>
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-[#d4af37] dark:text-zinc-950 dark:hover:bg-[#c59b27] dark:font-semibold transition-colors shadow-sm"
-            >
-              <User className="h-4 w-4" />
-              <span>Login</span>
-            </Link>
-          )}
-        </div>
-
-        {/* Mobile menu button */}
-        <div className="flex items-center gap-2 md:hidden">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="inline-flex items-center justify-center rounded-md p-2 text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white"
-            aria-expanded={mobileMenuOpen}
-            aria-label="Abrir menu principal"
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="border-b border-slate-200 bg-white px-4 pt-2 pb-6 md:hidden dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="space-y-1">
+        <div className="lg:hidden fixed inset-x-0 top-[65px] bg-[#090A0F]/98 backdrop-blur-xl border-b border-amber-500/20 shadow-2xl px-6 py-6 transition-all animate-in slide-in-from-top-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest pb-1 border-b border-slate-800">
+              <Sparkles className="w-3.5 h-3.5" />
+              Navegação
+            </div>
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block rounded-md px-3 py-2 text-base font-medium ${
-                  isActive(link.href)
-                    ? "bg-slate-100 text-slate-900 font-semibold dark:bg-zinc-900 dark:text-[#d4af37]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                }`}
+                className="text-base font-medium text-slate-200 hover:text-amber-400 py-1 transition-colors"
               >
                 {link.label}
-              </Link>
+              </a>
             ))}
-            <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-              {isAuthenticated ? (
-                <Link
-                  href="/perfil"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-center text-sm font-medium text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:font-semibold"
-                >
-                  <UserCheck className="h-4 w-4" />
-                  Minha Conta ({displayName})
-                </Link>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-center text-sm font-medium text-white dark:bg-[#d4af37] dark:text-zinc-950 dark:font-semibold"
-                >
-                  <User className="h-4 w-4" />
-                  Login
-                </Link>
-              )}
 
-              {(!isAuthenticated || isAdmin) && (
-                <Link
-                  href="/admin/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-medium text-slate-700 dark:border-zinc-800 dark:text-zinc-300"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Painel Administrativo
-                </Link>
-              )}
+            <div className="pt-4 border-t border-slate-800 flex flex-col gap-3">
+              <a
+                href={`${COMPANY_INFO.whatsappUrl}?text=${encodeURIComponent(
+                  "Olá GH Camiseteria! Gostaria de solicitar um orçamento para uniformes."
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm uppercase text-slate-950 bg-gradient-to-r from-amber-300 to-amber-500 shadow-lg shadow-amber-500/20"
+              >
+                <MessageCircle className="w-4 h-4 fill-slate-950" />
+                Pedir Orçamento no WhatsApp
+              </a>
+
+              <a
+                href={`tel:${COMPANY_INFO.phoneRaw}`}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 bg-slate-900 border border-slate-800"
+              >
+                <Phone className="w-3.5 h-3.5 text-amber-400" />
+                Ligar: {COMPANY_INFO.phoneFormatted}
+              </a>
             </div>
           </div>
         </div>
@@ -176,4 +153,3 @@ export function Navbar() {
     </header>
   );
 }
-
