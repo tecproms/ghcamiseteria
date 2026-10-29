@@ -137,7 +137,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-[11px] text-slate-600 text-center mt-6">
-          GH Camiseteria • Sistema de Gestão Interna de Catálogo (Sem Banco de Dados)
+          GH Camiseteria • Sistema de Gestão do Catálogo (PostgreSQL)
         </p>
       </div>
     </div>

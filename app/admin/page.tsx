@@ -426,11 +426,11 @@ export default function AdminDashboardPage() {
           <div className="p-5 rounded-2xl bg-[#0D0F17] border border-slate-800 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
-                Armazenamento
+                Banco de Dados
               </p>
-              <h3 className="text-base font-bold text-white">Zero Banco (JSON)</h3>
+              <h3 className="text-base font-bold text-white">PostgreSQL Ativo</h3>
               <p className="text-[11px] text-slate-400 mt-1">
-                data/catalog.json + uploads/
+                Transacional + Espelho em Disco
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
