@@ -19,10 +19,22 @@ import {
   Eye,
 } from "lucide-react";
 
-export function CatalogGrid() {
+interface CatalogGridProps {
+  initialProducts?: Product[];
+}
+
+export function CatalogGrid({ initialProducts }: CatalogGridProps) {
+  const [products, setProducts] = useState<Product[]>(initialProducts || PRODUCTS);
   const [selectedCategory, setSelectedCategory] = useState<string>("todas");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+
+  // Sync if initialProducts changes
+  React.useEffect(() => {
+    if (initialProducts && initialProducts.length > 0) {
+      setProducts(initialProducts);
+    }
+  }, [initialProducts]);
 
   // Dynamic Icon Mapping
   const iconMap: Record<string, React.ReactNode> = {
@@ -38,7 +50,7 @@ export function CatalogGrid() {
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((item) => {
+    return products.filter((item) => {
       const matchCategory =
         selectedCategory === "todas" || item.category === selectedCategory;
 
@@ -55,7 +67,7 @@ export function CatalogGrid() {
 
       return matchCategory && matchText;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [products, selectedCategory, searchQuery]);
 
   return (
     <section id="catalogo" className="py-20 lg:py-28 relative bg-[#090A0F]">

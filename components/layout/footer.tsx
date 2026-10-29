@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { COMPANY_INFO } from "@/data/catalog";
 import { MessageCircle } from "lucide-react";
@@ -92,8 +93,12 @@ export function Footer() {
           <div>
             © {new Date().getFullYear()} GH Camiseteria. Todos os direitos reservados.
           </div>
-          <div className="text-[11px] text-slate-600">
-            Qualidade, Conforto & Identidade Visual
+          <div className="flex items-center gap-4 text-[11px] text-slate-600">
+            <span>Qualidade, Conforto & Identidade Visual</span>
+            <span>•</span>
+            <Link href="/admin" className="hover:text-amber-400/80 transition-colors">
+              Painel Administrativo
+            </Link>
           </div>
         </div>
       </div>
