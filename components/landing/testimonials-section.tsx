@@ -7,7 +7,7 @@ export function TestimonialsSection() {
       author: "Rodrigo Almeida",
       role: "Diretor Comercial • AgroTech Transportes",
       icon: <Building2 className="w-5 h-5 text-amber-400" />,
-      text: "Fizemos 80 camisas polo para nossa equipe comercial e administrativa. A qualidade do bordado é impecável e o tecido Piquet PA não deforma nem cria bolinhas após dezenas de lavagens. Transmitiu outra postura aos nossos clientes.",
+      text: "Fizemos 80 camisas polo para nossa equipe comercial e administrativa. A qualidade do bordado é impecável e o tecido Piquet PV não deforma nem cria bolinhas após dezenas de lavagens. Transmitiu outra postura aos nossos clientes.",
       rating: 5,
     },
     {

@@ -43,7 +43,7 @@ export const PRODUCTS: Product[] = [
     image: "/images/catalog/polos-corporativas.jpg",
     summary: "A polo mais escolhida por empresas que prezam por elegância, caimento impecável e durabilidade.",
     description: "Confeccionada com gola e punhos em retilínea encorpada e frisos contrastantes em ouro ou na cor da sua marca. Costuras duplas reforçadas ombro a ombro e peitilho estruturado com botões nobres. Não deforma e não perde o brilho mesmo após dezenas de lavagens.",
-    fabrics: ["Piquet PA Nobre (50% Algodão / 50% Poliéster Anti-pilling)", "Piquet 100% Algodão Penteado", "Dry Piquet Tecnológico"],
+    fabrics: ["Piquet PV Nobre (50% Poliéster / 50% Viscose Anti-pilling)", "Piquet 100% Algodão Penteado"],
     techniques: ["Bordado Computadorizado de Alta Densidade", "DTF Ultra HD para Brasões Detalhados"],
     sizes: "Masculino: P ao EXG4 | Feminino Baby Look: P ao GG | Infantil: 2 ao 16",
     colors: ["Preto com Frisos Dourados", "Azul Marinho com Branco", "Branco com Marinho", "Grafite Chumbo", "Verde Petróleo", "Bordô / Vinho"],
@@ -155,7 +155,7 @@ export const PRODUCTS: Product[] = [
     image: "/images/catalog/empresa-proposta.jpg",
     summary: "Padronize todos os setores da sua empresa com harmonia visual entre diretoria, vendas e operação.",
     description: "Um projeto completo desenvolvido pela GH Camiseteria onde combinamos camisas sociais para executivos, polos para recepção/comercial e camisetas para a operação, todos seguindo rigorosamente a identidade visual e as cores da sua marca.",
-    fabrics: ["Mix Coordenado: Piquet PA + Tricoline Social + Algodão 30.1"],
+    fabrics: ["Mix Coordenado: Piquet PV (50% Poliéster / 50% Viscose) + Tricoline Social + Algodão 30.1"],
     techniques: ["Bordados padronizados em escala", "Aplicações de etiquetas personalizadas"],
     sizes: "Grade mista sob medida para todo o quadro de funcionários",
     colors: ["Paleta personalizada baseada no manual da sua marca"],
@@ -201,10 +201,10 @@ export const TECHNIQUES = [
 
 export const FABRICS_GUIDE = [
   {
-    name: "Piquet PA Nobre (50/50)",
-    composition: "50% Algodão / 50% Poliéster",
-    description: "O padrão-ouro das camisas polo. A maciez do algodão aliada à durabilidade e estabilidade dimensional do poliéster. Tratamento anti-pilling que não cria bolinhas.",
-    usage: "Polos executivas, uniformes corporativos e eventos nobres.",
+    name: "Piquet PV Nobre (50/50)",
+    composition: "50% Poliéster / 50% Viscose",
+    description: "Tecido nobre de toque macio e caimento alinhado para polos corporativas. A união de 50% poliéster com 50% viscose confere alta durabilidade, estabilidade que não deforma e tratamento anti-pilling que não cria bolinhas.",
+    usage: "Polos corporativas, uniformes executivos e eventos nobres.",
   },
   {
     name: "Dry Fit com Proteção UV50+",

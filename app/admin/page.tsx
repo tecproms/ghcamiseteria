@@ -45,7 +45,7 @@ const INITIAL_FORM: Omit<Product, "id"> & { id?: string } = {
   image: "",
   summary: "",
   description: "",
-  fabrics: ["Piquet PA Nobre", "100% Algodão Penteado"],
+  fabrics: ["Piquet PV Nobre (50% Poliéster / 50% Viscose)", "100% Algodão Penteado"],
   techniques: ["Bordado Computadorizado"],
   sizes: "P ao EXG4",
   colors: ["Preto", "Branco", "Azul Marinho"],
